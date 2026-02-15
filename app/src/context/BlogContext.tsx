@@ -1,18 +1,30 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { BlogContextType, BlogState, Article, Comment, Category, SiteSettings, Podcast } from '@/types';
-import { mockArticles, mockCategories, mockPodcasts, mockUsers, siteSettings } from '@/data/mockData';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
 
+const initialSettings: SiteSettings = {
+  siteName: (import.meta.env.VITE_SITE_NAME as string | undefined) || 'Chasma IR Magazine',
+  siteDescription: (import.meta.env.VITE_SITE_DESCRIPTION as string | undefined) || 'Expert analysis on International Relations, Foreign Policy, and Global Affairs',
+  logo: (import.meta.env.VITE_SITE_LOGO as string | undefined) || '/logo.png',
+  primaryColor: (import.meta.env.VITE_PRIMARY_COLOR as string | undefined) || '#1e3a5f',
+  socialLinks: {
+    twitter: (import.meta.env.VITE_TWITTER_URL as string | undefined) || '',
+    facebook: (import.meta.env.VITE_FACEBOOK_URL as string | undefined) || '',
+    linkedin: (import.meta.env.VITE_LINKEDIN_URL as string | undefined) || '',
+    youtube: (import.meta.env.VITE_YOUTUBE_URL as string | undefined) || '',
+  },
+};
+
 const initialState: BlogState = {
-  articles: mockArticles,
-  categories: mockCategories,
-  podcasts: mockPodcasts,
+  articles: [],
+  categories: [],
+  podcasts: [],
   likedArticles: [],
   subscriptions: [],
   comments: [],
-  siteSettings: siteSettings,
-  users: mockUsers,
+  siteSettings: initialSettings,
+  users: [],
 };
 
 const BlogContext = createContext<BlogContextType | undefined>(undefined);
@@ -26,6 +38,7 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
     const savedLikes = localStorage.getItem('chasma_likes');
     const savedSubscriptions = localStorage.getItem('chasma_subscriptions');
     const savedSettings = localStorage.getItem('chasma_settings');
+    const savedUsers = localStorage.getItem('chasma_registered_users');
     
     if (savedLikes) {
       try {
@@ -51,6 +64,14 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
         setState(prev => ({ ...prev, siteSettings: { ...prev.siteSettings, ...settings } }));
       } catch {
         localStorage.removeItem('chasma_settings');
+      }
+    }
+    if (savedUsers) {
+      try {
+        const users = JSON.parse(savedUsers);
+        setState(prev => ({ ...prev, users }));
+      } catch {
+        localStorage.removeItem('chasma_registered_users');
       }
     }
   }, []);
