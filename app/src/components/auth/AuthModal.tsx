@@ -207,12 +207,7 @@ export function AuthModal({ isOpen, onClose, defaultRole = 'reader' }: AuthModal
                   {isLoading ? 'Signing in...' : `Sign In as ${loginRole.charAt(0).toUpperCase() + loginRole.slice(1)}`}
                 </Button>
                 
-                <div className="text-center text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
-                  <p className="font-medium mb-1">Demo Credentials:</p>
-                  {loginRole === 'admin' && <p className="font-mono text-xs">admin@chasma.ir / password</p>}
-                  {loginRole === 'writer' && <p className="font-mono text-xs">priya@chasma.ir / password</p>}
-                  {loginRole === 'reader' && <p className="font-mono text-xs">reader@chasma.ir / password</p>}
-                </div>
+                
               </form>
             </TabsContent>
             

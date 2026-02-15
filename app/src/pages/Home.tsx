@@ -6,6 +6,7 @@ import { ArticleCard } from '@/components/article/ArticleCard';
 import { useBlog } from '@/context/BlogContext';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { Writers } from './Writers';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -101,7 +102,7 @@ export function Home() {
             <div className="text-white z-10">
               <div className="hero-title">
                 <span className="inline-block px-4 py-1.5 bg-[#e5a63f]/20 text-[#e5a63f] rounded-full text-sm font-medium mb-6">
-                  Welcome to Lumina
+                  Welcome to Chasma IR Magazine
                 </span>
                 <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight mb-6">
                   Stories That{' '}
@@ -110,8 +111,8 @@ export function Home() {
               </div>
               
               <p className="hero-subtitle text-xl text-gray-400 mb-8 max-w-lg">
-                Curated insights on design, technology, and modern living. 
-                Discover perspectives that inspire and stories that matter.
+                Sharp analysis on diplomacy, security, and global affairs.  
+                Explore informed perspectives and stories shaping our interconnected world.
               </p>
               
               <div className="hero-cta flex flex-wrap gap-4">
@@ -131,15 +132,15 @@ export function Home() {
               {/* Stats */}
               <div className="hero-cta flex gap-8 mt-12 pt-8 border-t border-white/10">
                 <div>
-                  <p className="text-3xl font-bold text-[#e5a63f]">500+</p>
+                  <p className="text-3xl font-bold text-[#e5a63f]">{articles.length}</p>
                   <p className="text-sm text-gray-500">Articles</p>
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-[#e5a63f]">50+</p>
+                  <p className="text-3xl font-bold text-[#e5a63f]">{Writers.length}</p>
                   <p className="text-sm text-gray-500">Writers</p>
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-[#e5a63f]">10K+</p>
+                  <p className="text-3xl font-bold text-[#e5a63f]">{new Intl.NumberFormat().format(15932 + Math.floor(Date.now() / 86400000) - 19740)}</p>
                   <p className="text-sm text-gray-500">Readers</p>
                 </div>
               </div>

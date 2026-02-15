@@ -230,6 +230,9 @@ export function ArticleEditor({ article, categories, isOpen, onClose, onSave, mo
                     <Button type="button" variant="ghost" size="sm" onClick={handleInsertVideo}>
                       Video
                     </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => { const url = window.prompt('Enter URL:'); if (url && quill) { const range = quill.getSelection(true); quill.insertText(range.index, url); quill.formatText(range.index, url.length, 'link', url); } }}>
+                      Link
+                    </Button>
                   </div>
                   <div ref={editorRef} className="h-96" />
                 </div>

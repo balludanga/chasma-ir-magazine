@@ -5,7 +5,7 @@ export const siteSettings: SiteSettings = {
   siteName: 'Chasma IR Magazine',
   siteDescription: 'Expert analysis on International Relations, Foreign Policy, and Global Affairs',
   logo: '/logo.png',
-  primaryColor: '#1e3a5f',
+  primaryColor: '#c78a55ff',
   socialLinks: {
     twitter: 'https://twitter.com/chasmaIR',
     facebook: 'https://facebook.com/chasmaIR',
