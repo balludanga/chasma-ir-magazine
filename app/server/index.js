@@ -12,6 +12,10 @@ app.use(bodyParser.json());
 // Initialize database on startup
 initializeDatabase().catch(console.error);
 
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Helper to format article
 const formatArticle = (row) => ({
   ...row,
