@@ -6,6 +6,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
 import { db, initializeDatabase } from './database.js';
+import { handleUpload } from '@vercel/blob/client';
+import { put } from '@vercel/blob';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,44 +39,114 @@ app.get('/api/health', (req, res) => {
 });
 
 app.post('/api/upload', upload.single('image'), async (req, res) => {
+    console.log('Upload request received');
+    
+    // Check if using Vercel Blob client upload (multipart request without file usually means client upload token request or different flow)
+    // But here we implement server-side upload to Blob for simplicity if client upload is not used.
+    // However, to support big files > 4.5MB on Vercel, we should encourage client uploads.
+    // For now, let's modify this endpoint to upload to Vercel Blob instead of DB.
+
     if (!req.file) {
+      console.error('No file in request. Headers:', req.headers);
       return res.status(400).json({ error: 'No file uploaded' });
     }
     
+    // Check if Vercel Blob token is available
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        console.warn('BLOB_READ_WRITE_TOKEN not found, falling back to database storage.');
+        // Fallback to existing DB storage logic
+        return uploadToDatabase(req, res);
+    }
+
+    try {
+        const file = req.file;
+        let buffer = file.buffer;
+        let filename = file.originalname;
+        let contentType = file.mimetype;
+
+        // Optional: Optimize images before uploading to Blob to save bandwidth/storage
+        if (contentType.startsWith('image/')) {
+            try {
+                buffer = await sharp(file.buffer)
+                  .resize({ width: 1200, withoutEnlargement: true })
+                  .webp({ quality: 80 })
+                  .toBuffer();
+                contentType = 'image/webp';
+                filename = filename.replace(/\.[^/.]+$/, "") + ".webp";
+                console.log(`Image compressed for Blob. New size: ${buffer.length}`);
+            } catch (e) {
+                console.warn('Sharp optimization failed, uploading original file to Blob');
+            }
+        }
+
+        // Upload to Vercel Blob
+        const blob = await put(filename, buffer, {
+            access: 'public',
+            contentType: contentType
+        });
+
+        console.log('File uploaded to Vercel Blob:', blob.url);
+        res.json({ url: blob.url });
+    } catch (error) {
+        console.error('Vercel Blob upload error:', error);
+        // Fallback to DB if Blob fails? Or just error.
+        // Let's error for now to avoid confusion.
+        res.status(500).json({ error: 'Failed to upload file to cloud storage: ' + error.message });
+    }
+});
+
+// Helper for DB upload (legacy fallback)
+async function uploadToDatabase(req, res) {
     const id = `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     let filename = req.file.originalname;
     let mimetype = req.file.mimetype;
     let buffer = req.file.buffer; // Buffer data
   
     try {
+      console.log(`Processing file for DB: ${filename}, size: ${buffer.length}, type: ${mimetype}`);
+
       // Process image to reduce size
       if (mimetype.startsWith('image/')) {
-        buffer = await sharp(req.file.buffer)
-          .resize({ width: 1200, withoutEnlargement: true }) // Limit width to 1200px
-          .webp({ quality: 80 }) // Convert to WebP with 80% quality (great compression)
-          .toBuffer();
-        
-        mimetype = 'image/webp';
-        filename = filename.replace(/\.[^/.]+$/, "") + ".webp";
+        try {
+            buffer = await sharp(req.file.buffer)
+              .resize({ width: 1200, withoutEnlargement: true }) // Limit width to 1200px
+              .webp({ quality: 80 }) // Convert to WebP with 80% quality (great compression)
+              .toBuffer();
+            
+            mimetype = 'image/webp';
+            filename = filename.replace(/\.[^/.]+$/, "") + ".webp";
+            console.log(`Image compressed. New size: ${buffer.length}, type: ${mimetype}`);
+        } catch (sharpError) {
+            console.error('Sharp processing failed, falling back to original file:', sharpError);
+            // Fallback to original buffer if sharp fails (e.g. missing binaries on Vercel)
+        }
       }
+
+      // Convert buffer to hex string for Postgres BYTEA to avoid JSON serialization issues
+      // This ensures the data is stored as raw bytes, not as a JSON string
+      const hexBuffer = '\\x' + buffer.toString('hex');
 
       // Store in Postgres
       await db`
         INSERT INTO files (id, filename, mimetype, data, createdAt)
-        VALUES (${id}, ${filename}, ${mimetype}, ${buffer}, ${new Date().toISOString()})
+        VALUES (${id}, ${filename}, ${mimetype}, ${hexBuffer}, ${new Date().toISOString()})
       `;
       
       // Return URL that serves from DB
       // Use relative path if possible, or absolute URL
       // Vercel might be on https, so req.protocol helps.
       // Note: req.get('host') on Vercel is the domain.
-      const fileUrl = `${req.protocol}://${req.get('host')}/api/files/${id}`;
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+      const host = req.headers['x-forwarded-host'] || req.get('host');
+      const fileUrl = `${protocol}://${host}/api/files/${id}`;
+      
+      console.log('File saved successfully to DB:', fileUrl);
       res.json({ url: fileUrl });
     } catch (error) {
       console.error('Upload error:', error);
-      res.status(500).json({ error: 'Failed to save file to database' });
+      res.status(500).json({ error: 'Failed to save file to database: ' + error.message });
     }
-  });
+}
 
 app.get(['/api/files/:id', '/files/:id'], async (req, res) => {
   const { id } = req.params;
@@ -85,10 +157,28 @@ app.get(['/api/files/:id', '/files/:id'], async (req, res) => {
     }
     
     const file = rows[0];
+    
+    let fileData = file.data;
+    
+    // Check if data is a JSON-serialized buffer (fix for ORB blocking issue)
+    if (Buffer.isBuffer(fileData)) {
+        const start = fileData.slice(0, 10).toString();
+        if (start.startsWith('{"data":[')) {
+            try {
+                const json = JSON.parse(fileData.toString());
+                if (json.data && Array.isArray(json.data)) {
+                    fileData = Buffer.from(json.data);
+                }
+            } catch (e) {
+                console.error('Failed to parse JSON buffer:', e);
+            }
+        }
+    }
+
     res.setHeader('Content-Type', file.mimetype);
     res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'); // Fix ORB blocking
-    res.send(file.data); // Send buffer
+    res.send(fileData); // Send buffer
   } catch (error) {
     console.error('File retrieval error:', error);
     res.status(500).json({ error: 'Failed to retrieve file' });
@@ -120,15 +210,24 @@ const formatArticle = (row) => {
   const authorRole = row.authorRole || row.authorrole;
   const authorBio = row.authorBio || row.authorbio;
   const authorSubscribers = row.authorSubscribers || row.authorsubscribers;
+  
+  // Map fields that might be lowercase from DB
+  const coverImage = row.coverImage || row.coverimage;
+  const readTime = row.readTime || row.readtime;
+  const publishedAt = row.publishedAt || row.publishedat;
+
   const tagsVal = row.tags;
   const likes = row.likes || 0;
   const featured = row.featured === 1 || row.featured === true;
 
-  console.log('Parsing tags for article:', id, 'Tags value:', tagsVal);
+  // console.log('Parsing tags for article:', id, 'Tags value:', tagsVal);
   
   return {
     ...row,
     id,
+    coverImage, // Explicitly mapped
+    readTime,   // Explicitly mapped
+    publishedAt, // Explicitly mapped
     author: {
       id: authorId,
       name: authorName,
@@ -488,7 +587,25 @@ app.post('/api/articles/:id/like', async (req, res) => {
   const { id } = req.params;
   const { userId } = req.body;
   
+  console.log(`Like request: articleId=${id}, userId=${userId}`);
+
   try {
+    if (!userId) {
+        return res.status(400).json({ error: "userId is required" });
+    }
+
+    // Check if user exists
+    const userCheck = await db`SELECT id FROM users WHERE id = ${userId}`;
+    if (userCheck.rows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if article exists
+    const articleCheck = await db`SELECT id FROM articles WHERE id = ${id}`;
+    if (articleCheck.rows.length === 0) {
+        return res.status(404).json({ error: "Article not found" });
+    }
+
     // Check if already liked
     const { rows } = await db`SELECT id FROM article_likes WHERE articleId = ${id} AND userId = ${userId}`;
     if (rows.length > 0) return res.json({ message: "Already liked" });

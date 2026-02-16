@@ -36,10 +36,17 @@ export function ArticleEditorPage() {
     const formData = new FormData();
     formData.append('image', file);
     
+    // Check file size (Vercel limit is 4.5MB, Multer limit 4MB)
+    if (file.size > 4 * 1024 * 1024) {
+        toast.error('Image size must be less than 4MB');
+        return;
+    }
+
     const toastId = toast.loading('Uploading image...');
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || '/api';
+      // Use relative path in production (Vercel) to avoid localhost issues
+      const API_URL = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
       const response = await fetch(`${API_URL}/upload`, {
         method: 'POST',
         body: formData,

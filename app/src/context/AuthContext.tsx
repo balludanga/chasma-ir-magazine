@@ -11,7 +11,8 @@ const initialState: AuthState = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+// Use relative path in production (Vercel) to avoid localhost issues
+const API_URL = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>(initialState);
@@ -97,33 +98,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = useCallback(async (updates: Partial<User>) => {
     if (!state.user) return;
+    
+    // Use relative path in production (Vercel) to avoid localhost issues
+    const API_URL = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
+
     try {
       const response = await fetch(`${API_URL}/users/${state.user.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
       });
-
+      
       if (!response.ok) {
         throw new Error('Failed to update profile');
       }
 
       const updatedUser = await response.json();
       
-      // Update local storage
       localStorage.setItem('chasma_user', JSON.stringify(updatedUser));
-      
-      // Update state
       setState(prev => ({
         ...prev,
-        user: updatedUser
+        user: updatedUser,
       }));
       
       toast.success('Profile updated successfully');
     } catch (error) {
       console.error('Update profile error:', error);
       toast.error('Failed to update profile');
-      throw error;
     }
   }, [state.user]);
 

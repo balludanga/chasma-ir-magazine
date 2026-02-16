@@ -17,7 +17,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { Camera } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+// Use relative path in production (Vercel) to avoid localhost issues
+const API_URL = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
 
 interface EditProfileDialogProps {
   children?: React.ReactNode;
@@ -35,8 +36,8 @@ export function EditProfileDialog({ children }: EditProfileDialogProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB');
+    if (file.size > 4 * 1024 * 1024) {
+      toast.error('File size must be less than 4MB');
       return;
     }
 

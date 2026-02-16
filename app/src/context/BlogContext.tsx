@@ -25,7 +25,8 @@ const initialState: BlogState = {
 
 const BlogContext = createContext<BlogContextType | undefined>(undefined);
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+// Use relative path in production (Vercel) to avoid localhost issues
+const API_URL = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
 
 export function BlogProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated } = useAuth();
@@ -119,7 +120,7 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
                 toast.info("You already liked this article");
                 return;
             }
-            throw new Error('Failed to like article');
+            throw new Error(data.error || 'Failed to like article');
         }
 
         setState(prev => {
@@ -135,7 +136,7 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
         });
     } catch (error) {
         console.error('Like error:', error);
-        toast.error('Failed to like article');
+        toast.error(error instanceof Error ? error.message : 'Failed to like article');
     }
   }, [isAuthenticated, user]);
 
@@ -147,7 +148,10 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
             method: 'DELETE'
         });
         
-        if (!response.ok) throw new Error('Failed to unlike article');
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to unlike article');
+        }
 
         setState(prev => {
           const likedArticles = prev.likedArticles.filter(id => id !== articleId);
@@ -162,7 +166,7 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
         });
     } catch (error) {
         console.error('Unlike error:', error);
-        toast.error('Failed to unlike article');
+        toast.error(error instanceof Error ? error.message : 'Failed to unlike article');
     }
   }, [isAuthenticated, user]);
 
