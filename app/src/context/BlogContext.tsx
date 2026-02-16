@@ -2,29 +2,17 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import type { BlogContextType, BlogState, Article, Comment, Category, SiteSettings, Podcast } from '@/types';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
-
-const initialSettings: SiteSettings = {
-  siteName: (import.meta.env.VITE_SITE_NAME as string | undefined) || 'Chasma IR Magazine',
-  siteDescription: (import.meta.env.VITE_SITE_DESCRIPTION as string | undefined) || 'Expert analysis on International Relations, Foreign Policy, and Global Affairs',
-  logo: (import.meta.env.VITE_SITE_LOGO as string | undefined) || '/logo.png',
-  primaryColor: (import.meta.env.VITE_PRIMARY_COLOR as string | undefined) || '#1e3a5f',
-  socialLinks: {
-    twitter: (import.meta.env.VITE_TWITTER_URL as string | undefined) || '',
-    facebook: (import.meta.env.VITE_FACEBOOK_URL as string | undefined) || '',
-    linkedin: (import.meta.env.VITE_LINKEDIN_URL as string | undefined) || '',
-    youtube: (import.meta.env.VITE_YOUTUBE_URL as string | undefined) || '',
-  },
-};
+import { mockArticles, mockCategories, mockPodcasts, mockUsers, mockComments, siteSettings as defaultSiteSettings } from '@/data/mockData';
 
 const initialState: BlogState = {
-  articles: [],
-  categories: [],
-  podcasts: [],
+  articles: mockArticles,
+  categories: mockCategories,
+  podcasts: mockPodcasts,
   likedArticles: [],
   subscriptions: [],
-  comments: [],
-  siteSettings: initialSettings,
-  users: [],
+  comments: mockComments,
+  siteSettings: defaultSiteSettings,
+  users: mockUsers,
 };
 
 const BlogContext = createContext<BlogContextType | undefined>(undefined);

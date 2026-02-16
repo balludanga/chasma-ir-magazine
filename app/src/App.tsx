@@ -8,6 +8,7 @@ import { Footer } from '@/components/navigation/Footer';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { Home } from '@/pages/Home';
 import { ArticleDetail } from '@/pages/ArticleDetail';
+import { ArticleEditorPage } from '@/pages/ArticleEditorPage';
 import { UserDashboard } from '@/pages/UserDashboard';
 import { WriterDashboard } from '@/pages/WriterDashboard';
 import { AdminDashboard } from '@/pages/AdminDashboard';
@@ -42,6 +43,8 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/article/:id" element={<ArticleDetail />} />
+          <Route path="/editor" element={<ArticleEditorPage />} />
+          <Route path="/editor/:id" element={<ArticleEditorPage />} />
           <Route path="/dashboard" element={<UserDashboard />} />
           <Route path="/writer-dashboard" element={<WriterDashboard />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />

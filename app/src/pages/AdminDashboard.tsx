@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   FileText, 
@@ -29,13 +29,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
 import { useBlog } from '@/context/BlogContext';
-import { ArticleEditor } from '@/components/editor/ArticleEditor';
 import { PodcastEditor } from '@/components/editor/PodcastEditor';
 import { toast } from 'sonner';
 import type { Article, Podcast } from '@/types';
 
 export function AdminDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { 
     articles, 
     categories, 
@@ -48,8 +48,6 @@ export function AdminDashboard() {
     addCategory,
     deleteCategory,
     updateSiteSettings,
-    createArticle,
-    updateArticle,
     createPodcast,
     updatePodcast,
     deletePodcast
@@ -62,9 +60,7 @@ export function AdminDashboard() {
   const [settingsForm, setSettingsForm] = useState(siteSettings);
   
   // Editor states
-  const [isArticleEditorOpen, setIsArticleEditorOpen] = useState(false);
   const [isPodcastEditorOpen, setIsPodcastEditorOpen] = useState(false);
-  const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [editingPodcast, setEditingPodcast] = useState<Podcast | null>(null);
   const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create');
 
@@ -129,25 +125,11 @@ export function AdminDashboard() {
 
   // Article Editor handlers
   const handleNewArticle = () => {
-    setEditingArticle(null);
-    setEditorMode('create');
-    setIsArticleEditorOpen(true);
+    navigate('/editor');
   };
 
   const handleEditArticle = (article: Article) => {
-    setEditingArticle(article);
-    setEditorMode('edit');
-    setIsArticleEditorOpen(true);
-  };
-
-  const handleSaveArticle = (articleData: Partial<Article>) => {
-    if (editorMode === 'create') {
-      createArticle(articleData);
-    } else if (editingArticle) {
-      updateArticle(editingArticle.id, articleData);
-    }
-    setIsArticleEditorOpen(false);
-    setEditingArticle(null);
+    navigate(`/editor/${article.id}`);
   };
 
   // Podcast Editor handlers
@@ -721,19 +703,6 @@ export function AdminDashboard() {
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Article Editor */}
-      <ArticleEditor
-        article={editingArticle}
-        categories={categories}
-        isOpen={isArticleEditorOpen}
-        onClose={() => {
-          setIsArticleEditorOpen(false);
-          setEditingArticle(null);
-        }}
-        onSave={handleSaveArticle}
-        mode={editorMode}
-      />
 
       {/* Podcast Editor */}
       <PodcastEditor

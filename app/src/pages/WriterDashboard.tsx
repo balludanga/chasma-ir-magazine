@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Edit2, Eye, Heart, MessageCircle, TrendingUp, Users, FileText, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -8,16 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import { useBlog } from '@/context/BlogContext';
 import { ArticleCard } from '@/components/article/ArticleCard';
-import { ArticleEditor } from '@/components/editor/ArticleEditor';
-import type { Article } from '@/types';
 
 export function WriterDashboard() {
   const { user } = useAuth();
-  const { getArticlesByWriter, categories, createArticle, updateArticle } = useBlog();
+  const navigate = useNavigate();
+  const { getArticlesByWriter } = useBlog();
   const [activeTab, setActiveTab] = useState('articles');
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [editingArticle, setEditingArticle] = useState<Article | null>(null);
-  const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create');
 
   // If user is not a writer, show message
   if (user?.role !== 'writer' && user?.role !== 'admin') {
@@ -55,28 +51,6 @@ export function WriterDashboard() {
     .sort((a, b) => b.likes - a.likes)
     .slice(0, 3);
 
-  const handleNewArticle = () => {
-    setEditingArticle(null);
-    setEditorMode('create');
-    setIsEditorOpen(true);
-  };
-
-  const handleEditArticle = (article: Article) => {
-    setEditingArticle(article);
-    setEditorMode('edit');
-    setIsEditorOpen(true);
-  };
-
-  const handleSaveArticle = (articleData: Partial<Article>) => {
-    if (editorMode === 'create') {
-      createArticle(articleData);
-    } else if (editingArticle) {
-      updateArticle(editingArticle.id, articleData);
-    }
-    setIsEditorOpen(false);
-    setEditingArticle(null);
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 pt-24 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -87,7 +61,7 @@ export function WriterDashboard() {
             <p className="text-gray-500 mt-1">Manage your articles and track performance</p>
           </div>
           <Button 
-            onClick={handleNewArticle}
+            onClick={() => navigate('/editor')}
             className="bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -232,7 +206,7 @@ export function WriterDashboard() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleEditArticle(article)}
+                              onClick={() => navigate(`/editor/${article.id}`)}
                             >
                               <Edit2 className="w-4 h-4" />
                             </Button>
@@ -251,7 +225,7 @@ export function WriterDashboard() {
                 <h3 className="text-xl font-bold text-gray-900 mb-2">No articles yet</h3>
                 <p className="text-gray-600 mb-6">Start writing and share your stories with the world</p>
                 <Button 
-                  onClick={handleNewArticle}
+                  onClick={() => navigate('/editor')}
                   className="bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white"
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -402,19 +376,6 @@ export function WriterDashboard() {
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Article Editor */}
-      <ArticleEditor
-        article={editingArticle}
-        categories={categories}
-        isOpen={isEditorOpen}
-        onClose={() => {
-          setIsEditorOpen(false);
-          setEditingArticle(null);
-        }}
-        onSave={handleSaveArticle}
-        mode={editorMode}
-      />
     </div>
   );
 }
