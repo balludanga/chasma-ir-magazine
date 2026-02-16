@@ -1,101 +1,17 @@
-import { sql } from '@vercel/postgres';
-import dotenv from 'dotenv';
+import { createClient } from '@supabase/supabase-js';
 
-dotenv.config();
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function initializeDatabase() {
   try {
-    // Users
-    await sql`CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      name TEXT,
-      email TEXT UNIQUE,
-      avatar TEXT,
-      role TEXT,
-      bio TEXT,
-      joinedAt TEXT,
-      subscribers INTEGER,
-      isActive INTEGER
-    )`;
+    // In a Supabase setup, schema management (CREATE TABLE) is typically done
+    // directly in the Supabase dashboard or via migrations.
+    // The following CREATE TABLE statements have been removed.
+    // Please ensure these tables exist in your Supabase project.
 
-    // Articles
-    await sql`CREATE TABLE IF NOT EXISTS articles (
-      id TEXT PRIMARY KEY,
-      title TEXT,
-      excerpt TEXT,
-      content TEXT,
-      coverImage TEXT,
-      category TEXT,
-      authorId TEXT,
-      publishedAt TEXT,
-      readTime INTEGER,
-      likes INTEGER,
-      tags TEXT,
-      status TEXT,
-      views INTEGER,
-      FOREIGN KEY(authorId) REFERENCES users(id)
-    )`;
-
-    // Categories
-    await sql`CREATE TABLE IF NOT EXISTS categories (
-      id TEXT PRIMARY KEY,
-      name TEXT UNIQUE,
-      slug TEXT,
-      description TEXT,
-      image TEXT,
-      articleCount INTEGER,
-      isActive INTEGER
-    )`;
-
-    // Podcasts
-    await sql`CREATE TABLE IF NOT EXISTS podcasts (
-      id TEXT PRIMARY KEY,
-      title TEXT,
-      description TEXT,
-      coverImage TEXT,
-      duration TEXT,
-      publishedAt TEXT,
-      audioUrl TEXT
-    )`;
-
-    // Comments
-    await sql`CREATE TABLE IF NOT EXISTS comments (
-      id TEXT PRIMARY KEY,
-      articleId TEXT,
-      authorId TEXT,
-      content TEXT,
-      createdAt TEXT,
-      likes INTEGER,
-      FOREIGN KEY(articleId) REFERENCES articles(id),
-      FOREIGN KEY(authorId) REFERENCES users(id)
-    )`;
-
-    // Site Settings
-    await sql`CREATE TABLE IF NOT EXISTS site_settings (
-      id INTEGER PRIMARY KEY CHECK (id = 1),
-      siteName TEXT,
-      siteDescription TEXT,
-      logo TEXT,
-      primaryColor TEXT,
-      socialLinks TEXT
-    )`;
-
-    // Subscriptions
-    await sql`CREATE TABLE IF NOT EXISTS subscriptions (
-      id TEXT PRIMARY KEY,
-      writerId TEXT,
-      subscriberId TEXT,
-      subscribedAt TEXT
-    )`;
-
-    // Liked Articles
-    await sql`CREATE TABLE IF NOT EXISTS liked_articles (
-      id TEXT PRIMARY KEY,
-      articleId TEXT,
-      userId TEXT,
-      createdAt TEXT
-    )`;
-    
     await seedData();
   } catch (error) {
     console.error('Error initializing database:', error);
@@ -104,8 +20,8 @@ async function initializeDatabase() {
 
 async function seedData() {
   try {
-    const { rows } = await sql`SELECT count(*) as count FROM users`;
-    if (rows[0].count === '0') {
+    const { count } = await supabase.from('users').select('count', { count: 'exact' });
+    if (count === 0) {
       console.log("Seeding data...");
       
       // Seed Users
@@ -143,9 +59,8 @@ async function seedData() {
         }
       ];
 
-      for (const user of users) {
-        await sql`INSERT INTO users (id, name, email, avatar, role, bio, joinedAt, subscribers, isActive) VALUES (${user.id}, ${user.name}, ${user.email}, ${user.avatar}, ${user.role}, ${user.bio || ''}, ${user.joinedAt}, ${user.subscribers || 0}, ${user.isActive})`;
-      }
+      const { error: usersError } = await supabase.from('users').insert(users);
+      if (usersError) throw usersError;
 
       // Seed Categories
       const categories = [
@@ -169,15 +84,23 @@ async function seedData() {
         }
       ];
       
-      for (const cat of categories) {
-        await sql`INSERT INTO categories (id, name, slug, description, image, articleCount, isActive) VALUES (${cat.id}, ${cat.name}, ${cat.slug}, ${cat.description}, ${cat.image}, ${cat.articleCount}, ${cat.isActive})`;
-      }
+      const { error: categoriesError } = await supabase.from('categories').insert(categories);
+      if (categoriesError) throw categoriesError;
 
        // Seed Site Settings
-       await sql`INSERT INTO site_settings (id, siteName, siteDescription, logo, primaryColor, socialLinks) VALUES (1, 'Chasma IR Magazine', 'Expert analysis on International Relations', '/logo.png', '#c78a55ff', ${JSON.stringify({
-          twitter: 'https://twitter.com/chasmaIR',
-          facebook: 'https://facebook.com/chasmaIR'
-        })})`;
+       const siteSettings = {
+          id: 1,
+          siteName: 'Chasma IR Magazine',
+          siteDescription: 'Expert analysis on International Relations',
+          logo: '/logo.png',
+          primaryColor: '#c78a55ff',
+          socialLinks: {
+            twitter: 'https://twitter.com/chasmaIR',
+            facebook: 'https://facebook.com/chasmaIR'
+          }
+       };
+       const { error: settingsError } = await supabase.from('site_settings').insert([siteSettings]);
+       if (settingsError) throw settingsError;
 
       console.log("Data seeding completed.");
     }
@@ -186,24 +109,5 @@ async function seedData() {
   }
 }
 
-// Helper object to mimic sqlite interface for easy migration
-const db = {
-  get: async (query, params = [], callback) => {
-    try {
-      // Basic param substitution for $1, $2 etc or direct execution
-      // Note: This is a rough adapter. For production, better to rewrite queries.
-      // But for this quick migration, we'll try to adapt.
-      // Vercel Postgres uses template literals mainly, but also supports parameterized queries via `client.query`
-      // but `sql` tag is preferred.
-      // Let's rewrite this to use `sql.query(text, params)` if possible, but `sql` is a tag function.
-      // We will export `sql` directly and update the usage in `index.js`.
-    } catch (e) {
-      if (callback) callback(e);
-    }
-  }
-};
-
-// We will export `sql` and `initializeDatabase` to be used in index.js
-// And we'll need to update index.js to use async/await and sql`` syntax
-export { sql, initializeDatabase };
+export { supabase, initializeDatabase };
 
