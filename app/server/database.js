@@ -1,17 +1,12 @@
 import { sql } from '@vercel/postgres';
 import { get } from '@vercel/edge-config';
-import dotenv from 'dotenv';
 
-dotenv.config();
 
-const edgeConfigDbUrl = await get('POSTGRES_URL');
-const connectionString = edgeConfigDbUrl || process.env.POSTGRES_URL;
 
-if (!connectionString) {
-  throw new Error('POSTGRES_URL is not set in environment variables or Edge Config');
-}
 
-const db = sql(connectionString);
+
+
+const db = sql;
 
 async function initializeDatabase() {
   try {
@@ -46,6 +41,13 @@ async function initializeDatabase() {
       FOREIGN KEY(authorId) REFERENCES users(id)
     )`;
 
+    // Add featured column if not exists (for existing databases)
+    try {
+      await db`ALTER TABLE articles ADD COLUMN IF NOT EXISTS featured INTEGER DEFAULT 0`;
+    } catch (e) {
+      console.log('Column featured might already exist or error adding it:', e.message);
+    }
+
     // Categories
     await db`CREATE TABLE IF NOT EXISTS categories (
       id TEXT PRIMARY KEY,
@@ -78,6 +80,26 @@ async function initializeDatabase() {
       likes INTEGER,
       FOREIGN KEY(articleId) REFERENCES articles(id),
       FOREIGN KEY(authorId) REFERENCES users(id)
+    )`;
+
+    // Article Likes
+    await db`CREATE TABLE IF NOT EXISTS article_likes (
+      id TEXT PRIMARY KEY,
+      articleId TEXT,
+      userId TEXT,
+      createdAt TEXT,
+      FOREIGN KEY(articleId) REFERENCES articles(id),
+      FOREIGN KEY(userId) REFERENCES users(id),
+      UNIQUE(articleId, userId)
+    )`;
+
+    // Files (Images storage)
+    await db`CREATE TABLE IF NOT EXISTS files (
+      id TEXT PRIMARY KEY,
+      filename TEXT,
+      mimetype TEXT,
+      data BYTEA,
+      createdAt TEXT
     )`;
 
     // Site Settings

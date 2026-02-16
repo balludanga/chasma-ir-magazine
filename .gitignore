@@ -1,10 +1,43 @@
+# Dependencies
 node_modules/
-dist/
-.DS_Store
-*.log
 app/node_modules/
-app/dist/
-/.vercel
-app/src/data/mockData.ts
-*.sqlite
+app/server/node_modules/
 
+# Production build
+dist/
+app/dist/
+build/
+app/build/
+
+# Local environment variables
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+
+# Vercel
+.vercel
+.vercel_build_output
+
+# Server uploads (keep directory structure but ignore content)
+app/server/uploads/*
+!app/server/uploads/.gitkeep
+
+# Database (if local SQLite)
+*.sqlite
+*.sqlite3
+*.db

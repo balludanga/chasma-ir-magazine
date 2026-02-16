@@ -79,14 +79,14 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <BlogProvider>
-        <Router>
+    <Router>
+      <AuthProvider>
+        <BlogProvider>
           <AppContent />
           <Toaster position="top-center" richColors />
-        </Router>
-      </BlogProvider>
-    </AuthProvider>
+        </BlogProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { AuthContextType, AuthState } from '@/types';
 
 const initialState: AuthState = {
@@ -13,6 +14,7 @@ const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>(initialState);
+  const navigate = useNavigate();
 
   // Check for saved session on mount
   useEffect(() => {
@@ -103,7 +105,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: false,
       isLoading: false,
     });
-  }, []);
+    navigate('/');
+  }, [navigate]);
 
   const value: AuthContextType = {
     ...state,

@@ -14,6 +14,7 @@ export function Writers() {
 
   // Get unique writers from articles
   const writers = articles
+    .filter(a => a.status === 'published')
     .map(a => a.author)
     .filter((author, index, self) => 
       index === self.findIndex(a => a.id === author.id)
@@ -21,7 +22,7 @@ export function Writers() {
 
   if (id) {
     const writer = writers.find(w => w.id === id);
-    const writerArticles = getArticlesByWriter(id);
+    const writerArticles = getArticlesByWriter(id).filter(a => a.status === 'published');
     const isSubscribed = isSubscribedToWriter(id);
 
     if (!writer) {
@@ -139,7 +140,7 @@ export function Writers() {
         {/* Writers Grid */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {writers.map((writer) => {
-            const writerArticles = getArticlesByWriter(writer.id);
+            const writerArticles = getArticlesByWriter(writer.id).filter(a => a.status === 'published');
             
             return (
               <Link

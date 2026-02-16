@@ -17,7 +17,8 @@ import {
   TrendingUp,
   UserCheck,
   MessageSquare,
-  Play
+  Play,
+  Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +44,7 @@ export function AdminDashboard() {
     podcasts,
     siteSettings,
     updateArticleStatus, 
+    updateArticle,
     deleteArticle,
     updateUserStatus,
     addCategory,
@@ -91,13 +93,13 @@ export function AdminDashboard() {
   const totalUsers = users.length;
   const activeWriters = users.filter(u => u.role === 'writer' && u.isActive).length;
   const totalViews = articles.reduce((sum, a) => sum + (a.views || 0), 0);
-  const totalLikes = articles.reduce((sum, a) => sum + a.likes, 0);
-  const totalComments = articles.reduce((sum, a) => sum + a.comments.length, 0);
+  const totalLikes = articles.reduce((sum, a) => sum + (a.likes || 0), 0);
+  const totalComments = articles.reduce((sum, a) => sum + (a.comments?.length || 0), 0);
 
   // Filtered data
   const filteredArticles = articles.filter(a => 
-    a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.author.name.toLowerCase().includes(searchQuery.toLowerCase())
+    (a.title && a.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (a.author && a.author.name && a.author.name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const filteredPodcasts = podcasts.filter(p => 
@@ -275,7 +277,7 @@ export function AdminDashboard() {
                         />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{article.title}</p>
-                          <p className="text-sm text-gray-500">{article.author.name}</p>
+                          <p className="text-sm text-gray-500">{article.author?.name || 'Unknown Author'}</p>
                         </div>
                         <Badge variant={article.status === 'published' ? 'default' : 'secondary'}>
                           {article.status}
@@ -340,6 +342,7 @@ export function AdminDashboard() {
                         <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Article</th>
                         <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Author</th>
                         <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Status</th>
+                        <th className="text-center px-4 py-3 text-sm font-medium text-gray-500">Featured</th>
                         <th className="text-center px-4 py-3 text-sm font-medium text-gray-500">Views</th>
                         <th className="text-center px-4 py-3 text-sm font-medium text-gray-500">Likes</th>
                         <th className="text-right px-4 py-3 text-sm font-medium text-gray-500">Actions</th>
@@ -366,7 +369,7 @@ export function AdminDashboard() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{article.author.name}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{article.author?.name || 'Unknown'}</td>
                           <td className="px-4 py-3">
                             <Badge 
                               variant={article.status === 'published' ? 'default' : article.status === 'pending' ? 'secondary' : 'outline'}
@@ -374,6 +377,16 @@ export function AdminDashboard() {
                             >
                               {article.status}
                             </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => updateArticle(article.id, { featured: !article.featured })}
+                              className={article.featured ? 'text-yellow-500 hover:text-yellow-600' : 'text-gray-400 hover:text-yellow-500'}
+                            >
+                              <Star className={`w-4 h-4 ${article.featured ? 'fill-current' : ''}`} />
+                            </Button>
                           </td>
                           <td className="px-4 py-3 text-center text-sm text-gray-600">{(article.views || 0).toLocaleString()}</td>
                           <td className="px-4 py-3 text-center text-sm text-gray-600">{article.likes}</td>
@@ -508,11 +521,11 @@ export function AdminDashboard() {
                               <Avatar className="w-10 h-10">
                                 <AvatarImage src={u.avatar} alt={u.name} />
                                 <AvatarFallback className="bg-[#1e3a5f] text-white">
-                                  {u.name.charAt(0)}
+                                  {(u.name?.charAt(0) || 'U')}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
-                                <p className="font-medium text-gray-900">{u.name}</p>
+                                <p className="font-medium text-gray-900">{u.name || 'Unknown User'}</p>
                                 <p className="text-xs text-gray-500">{u.email}</p>
                               </div>
                             </div>
@@ -640,14 +653,14 @@ export function AdminDashboard() {
                   <div>
                     <Label>Site Name</Label>
                     <Input
-                      value={settingsForm.siteName}
+                      value={settingsForm.siteName || ''}
                       onChange={(e) => setSettingsForm({ ...settingsForm, siteName: e.target.value })}
                     />
                   </div>
                   <div>
                     <Label>Site Description</Label>
                     <Input
-                      value={settingsForm.siteDescription}
+                      value={settingsForm.siteDescription || ''}
                       onChange={(e) => setSettingsForm({ ...settingsForm, siteDescription: e.target.value })}
                     />
                   </div>
@@ -655,7 +668,7 @@ export function AdminDashboard() {
                     <Label>Primary Color</Label>
                     <div className="flex gap-2">
                       <Input
-                        value={settingsForm.primaryColor}
+                        value={settingsForm.primaryColor || ''}
                         onChange={(e) => setSettingsForm({ ...settingsForm, primaryColor: e.target.value })}
                       />
                       <div 

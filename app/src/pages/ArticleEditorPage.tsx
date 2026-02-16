@@ -8,14 +8,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Send } from 'lucide-react';
+import { ArrowLeft, Save, Send, Upload, Wand2 } from 'lucide-react';
 import type { Article } from '@/types';
 import { QuillEditor } from '@/components/editor/QuillEditor';
 
 export function ArticleEditorPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { articles, categories, createArticle, updateArticle } = useBlog();
   
   const contentRef = useRef('');
@@ -27,6 +27,47 @@ export function ArticleEditorPage() {
   const [readTime, setReadTime] = useState(5);
   const [initialContent, setInitialContent] = useState('');
   const [isLoading, setIsLoading] = useState(!!id);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    const toastId = toast.loading('Uploading image...');
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || '/api';
+      const response = await fetch(`${API_URL}/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) throw new Error('Upload failed');
+      
+      const data = await response.json();
+      setCoverImage(data.url);
+      toast.success('Image uploaded successfully', { id: toastId });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload image', { id: toastId });
+    }
+  };
+
+  const handleAutoFillImage = () => {
+    if (!title.trim()) {
+        toast.error("Please enter a title first");
+        return;
+    }
+    
+    const safeTitle = encodeURIComponent(title.trim());
+    const url = `https://image.pollinations.ai/prompt/${safeTitle}`;
+    
+    setCoverImage(url);
+    toast.success('Generated cover image from title');
+  };
 
   useEffect(() => {
     if (id) {
@@ -45,6 +86,26 @@ export function ArticleEditorPage() {
       }
     }
   }, [id, articles]);
+
+  if (authLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!user || (user.role !== 'writer' && user.role !== 'admin')) {
+    return (
+      <div className="min-h-screen flex items-center justify-center pt-20">
+        <div className="text-center max-w-md mx-auto p-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Writer Access Only</h2>
+          <p className="text-gray-600 mb-6">
+            You need to be a writer to access the editor.
+          </p>
+          <Button onClick={() => navigate('/')}>
+            Go Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const handleContentChange = (newContent: string) => {
     contentRef.current = newContent;
@@ -71,7 +132,7 @@ export function ArticleEditorPage() {
       excerpt: excerpt.trim(),
       content,
       category,
-      coverImage: coverImage || 'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=1200&h=800&fit=crop',
+      coverImage: coverImage || (title.trim() ? `https://image.pollinations.ai/prompt/${encodeURIComponent(title.trim())}` : 'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=1200&h=800&fit=crop'),
       readTime,
       status: newStatus,
       publishedAt: newStatus === 'published' ? new Date().toISOString() : undefined,
@@ -179,14 +240,40 @@ export function ArticleEditorPage() {
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Cover Image URL</Label>
-                    <Input 
-                        value={coverImage}
-                        onChange={(e) => setCoverImage(e.target.value)}
-                        placeholder="https://..."
-                    />
+                    <Label>Cover Image</Label>
+                    <div className="flex gap-2">
+                        <Input 
+                            value={coverImage}
+                            onChange={(e) => setCoverImage(e.target.value)}
+                            placeholder="https://..."
+                            className="flex-1"
+                        />
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                        />
+                        <Button 
+                            variant="outline" 
+                            size="icon"
+                            onClick={() => fileInputRef.current?.click()}
+                            title="Upload Image"
+                        >
+                            <Upload className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                            variant="outline" 
+                            size="icon"
+                            onClick={handleAutoFillImage}
+                            title="Auto-fill from Title"
+                        >
+                            <Wand2 className="w-4 h-4" />
+                        </Button>
+                    </div>
                     {coverImage && (
-                        <div className="mt-2 relative aspect-video rounded-lg overflow-hidden border">
+                        <div className="mt-2 relative aspect-video rounded-lg overflow-hidden border bg-gray-100">
                             <img src={coverImage} alt="Cover" className="object-cover w-full h-full" />
                         </div>
                     )}

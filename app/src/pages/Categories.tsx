@@ -8,7 +8,7 @@ export function Categories() {
   const { categories, getArticlesByCategory, articles } = useBlog();
 
   if (slug) {
-    const categoryArticles = getArticlesByCategory(slug);
+    const categoryArticles = getArticlesByCategory(slug).filter(a => a.status === 'published');
     const category = categories.find(c => c.slug === slug);
 
     return (

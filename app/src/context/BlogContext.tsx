@@ -34,11 +34,13 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [articlesRes, categoriesRes, usersRes, settingsRes] = await Promise.all([
+        const [articlesRes, categoriesRes, usersRes, settingsRes, podcastsRes, commentsRes] = await Promise.all([
           fetch(`${API_URL}/articles`),
           fetch(`${API_URL}/categories`),
           fetch(`${API_URL}/users`),
-          fetch(`${API_URL}/settings`)
+          fetch(`${API_URL}/settings`),
+          fetch(`${API_URL}/podcasts`),
+          fetch(`${API_URL}/comments`)
         ]);
 
         if (articlesRes.ok && categoriesRes.ok && usersRes.ok) {
@@ -46,13 +48,26 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
             const categories = await categoriesRes.json();
             const users = await usersRes.json();
             const settings = await settingsRes.json();
+            const podcasts = await podcastsRes.json();
+            const comments = commentsRes.ok ? await commentsRes.json() : [];
+            
+            // Map comments to articles
+            const articlesWithComments = Array.isArray(articles) ? articles.map((article: any) => {
+                const articleComments = Array.isArray(comments) ? comments.filter((c: any) => c.articleId === article.id).map((c: any) => ({
+                    ...c,
+                    author: Array.isArray(users) ? (users.find((u: any) => u.id === c.authorId) || { id: c.authorId, name: 'Unknown' }) : { id: c.authorId, name: 'Unknown' }
+                })) : [];
+                return { ...article, comments: articleComments };
+            }) : [];
             
             setState(prev => ({
                 ...prev,
-                articles: Array.isArray(articles) ? articles : prev.articles,
+                articles: articlesWithComments,
                 categories: Array.isArray(categories) ? categories : prev.categories,
                 users: Array.isArray(users) ? users : prev.users,
-                siteSettings: settings.id ? settings : prev.siteSettings
+                siteSettings: settings.id ? settings : prev.siteSettings,
+                podcasts: Array.isArray(podcasts) ? podcasts : prev.podcasts,
+                comments: Array.isArray(comments) ? comments : []
             }));
         }
       } catch (error) {
@@ -63,68 +78,128 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
     fetchData();
   }, []);
 
+  // Load liked articles when user changes
+  useEffect(() => {
+    if (user) {
+      fetch(`${API_URL}/likes?userId=${user.id}`)
+        .then(res => res.json())
+        .then(likedIds => {
+          if (Array.isArray(likedIds)) {
+             setState(prev => ({ ...prev, likedArticles: likedIds }));
+          }
+        })
+        .catch(err => console.error("Failed to load likes", err));
+    } else {
+      setState(prev => ({ ...prev, likedArticles: [] }));
+    }
+  }, [user]);
+
   // Persistence effects removed in favor of API
 
 
-  const likeArticle = useCallback((articleId: string) => {
-    if (!isAuthenticated) {
+  const likeArticle = useCallback(async (articleId: string) => {
+    if (!isAuthenticated || !user) {
       toast.error('Please sign in to like articles');
       return;
     }
 
-    setState(prev => {
-      const likedArticles = [...prev.likedArticles, articleId];
-      const articles = prev.articles.map(article =>
-        article.id === articleId
-          ? { ...article, likes: article.likes + 1 }
-          : article
-      );
-      
-      toast.success('Article liked!');
-      return { ...prev, likedArticles, articles };
-    });
-  }, [isAuthenticated]);
+    try {
+        const response = await fetch(`${API_URL}/articles/${articleId}/like`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id })
+        });
+        
+        if (!response.ok) {
+            const data = await response.json();
+            if (data.message === "Already liked") {
+                toast.info("You already liked this article");
+                return;
+            }
+            throw new Error('Failed to like article');
+        }
 
-  const unlikeArticle = useCallback((articleId: string) => {
-    setState(prev => {
-      const likedArticles = prev.likedArticles.filter(id => id !== articleId);
-      const articles = prev.articles.map(article =>
-        article.id === articleId
-          ? { ...article, likes: Math.max(0, article.likes - 1) }
-          : article
-      );
-      
-      toast.success('Article unliked');
-      return { ...prev, likedArticles, articles };
-    });
-  }, []);
+        setState(prev => {
+          const likedArticles = [...prev.likedArticles, articleId];
+          const articles = prev.articles.map(article =>
+            article.id === articleId
+              ? { ...article, likes: (article.likes || 0) + 1 }
+              : article
+          );
+          
+          toast.success('Article liked!');
+          return { ...prev, likedArticles, articles };
+        });
+    } catch (error) {
+        console.error('Like error:', error);
+        toast.error('Failed to like article');
+    }
+  }, [isAuthenticated, user]);
 
-  const addComment = useCallback((articleId: string, content: string) => {
+  const unlikeArticle = useCallback(async (articleId: string) => {
+    if (!isAuthenticated || !user) return;
+
+    try {
+        const response = await fetch(`${API_URL}/articles/${articleId}/like?userId=${user.id}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to unlike article');
+
+        setState(prev => {
+          const likedArticles = prev.likedArticles.filter(id => id !== articleId);
+          const articles = prev.articles.map(article =>
+            article.id === articleId
+              ? { ...article, likes: Math.max(0, (article.likes || 0) - 1) }
+              : article
+          );
+          
+          toast.success('Article unliked');
+          return { ...prev, likedArticles, articles };
+        });
+    } catch (error) {
+        console.error('Unlike error:', error);
+        toast.error('Failed to unlike article');
+    }
+  }, [isAuthenticated, user]);
+
+  const addComment = useCallback(async (articleId: string, content: string) => {
     if (!isAuthenticated || !user) {
       toast.error('Please sign in to comment');
       return;
     }
 
-    const newComment: Comment = {
-      id: `comment_${Date.now()}`,
-      articleId,
-      author: user,
-      content,
-      createdAt: new Date().toISOString(),
-      likes: 0,
-    };
+    try {
+        const response = await fetch(`${API_URL}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ articleId, authorId: user.id, content })
+        });
+        
+        if (!response.ok) throw new Error('Failed to add comment');
+        const newCommentRaw = await response.json();
+        
+        // Construct full comment object with author
+        const newComment: Comment = {
+            ...newCommentRaw,
+            author: user
+        };
 
-    setState(prev => {
-      const articles = prev.articles.map(article =>
-        article.id === articleId
-          ? { ...article, comments: [...article.comments, newComment] }
-          : article
-      );
-      
-      return { ...prev, articles, comments: [...prev.comments, newComment] };
-    });
+        setState(prev => {
+          const articles = prev.articles.map(article =>
+            article.id === articleId
+              ? { ...article, comments: [newComment, ...(article.comments || [])] }
+              : article
+          );
+          
+          return { ...prev, articles, comments: [newComment, ...prev.comments] };
+        });
 
-    toast.success('Comment added!');
+        toast.success('Comment added!');
+    } catch (error) {
+        console.error('Add comment error:', error);
+        toast.error('Failed to add comment');
+    }
   }, [isAuthenticated, user]);
 
   const subscribeToWriter = useCallback((writerId: string) => {
@@ -146,7 +221,7 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
       
       const subscriptions = [...prev.subscriptions, writerId];
       const articles = prev.articles.map(article =>
-        article.author.id === writerId
+        article.author?.id === writerId
           ? { ...article, author: { ...article.author, subscribers: (article.author.subscribers || 0) + 1 } }
           : article
       );
@@ -160,7 +235,7 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
     setState(prev => {
       const subscriptions = prev.subscriptions.filter(id => id !== writerId);
       const articles = prev.articles.map(article =>
-        article.author.id === writerId
+        article.author?.id === writerId
           ? { ...article, author: { ...article.author, subscribers: Math.max(0, (article.author.subscribers || 0) - 1) } }
           : article
       );
@@ -189,7 +264,7 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
   }, [state.articles]);
 
   const getArticlesByWriter = useCallback((writerId: string) => {
-    return state.articles.filter(article => article.author.id === writerId);
+    return state.articles.filter(article => article.author?.id === writerId);
   }, [state.articles]);
 
   const getLikedArticles = useCallback(() => {
@@ -197,7 +272,7 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
   }, [state.articles, state.likedArticles]);
 
   const getSubscribedWritersArticles = useCallback(() => {
-    return state.articles.filter(article => state.subscriptions.includes(article.author.id));
+    return state.articles.filter(article => state.subscriptions.includes(article.author?.id));
   }, [state.articles, state.subscriptions]);
 
   const shareArticle = useCallback((article: Article) => {
@@ -216,74 +291,175 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Admin Functions
-  const updateArticleStatus = useCallback((articleId: string, status: 'published' | 'draft' | 'pending') => {
-    setState(prev => {
-      const articles = prev.articles.map(article =>
-        article.id === articleId ? { ...article, status } : article
-      );
-      toast.success(`Article status updated to ${status}`);
-      return { ...prev, articles };
-    });
+  const updateArticleStatus = useCallback(async (articleId: string, status: 'published' | 'draft' | 'pending') => {
+    try {
+      const response = await fetch(`${API_URL}/articles/${articleId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+
+      if (!response.ok) throw new Error('Failed to update status');
+
+      setState(prev => {
+        const articles = prev.articles.map(article =>
+          article.id === articleId ? { ...article, status } : article
+        );
+        toast.success(`Article status updated to ${status}`);
+        return { ...prev, articles };
+      });
+    } catch (error) {
+      console.error('Update status error:', error);
+      toast.error('Failed to update status');
+    }
   }, []);
 
-  const deleteArticle = useCallback((articleId: string) => {
-    setState(prev => {
-      const articles = prev.articles.filter(article => article.id !== articleId);
-      toast.success('Article deleted successfully');
-      return { ...prev, articles };
-    });
+  const deleteArticle = useCallback(async (articleId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/articles/${articleId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete article');
+
+      setState(prev => {
+        const articles = prev.articles.filter(article => article.id !== articleId);
+        toast.success('Article deleted successfully');
+        return { ...prev, articles };
+      });
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete article');
+    }
   }, []);
 
-  const updateUserStatus = useCallback((userId: string, isActive: boolean) => {
-    setState(prev => {
-      const users = prev.users.map(u =>
-        u.id === userId ? { ...u, isActive } : u
-      );
-      const articles = prev.articles.map(article =>
-        article.author.id === userId 
-          ? { ...article, author: { ...article.author, isActive } }
-          : article
-      );
-      toast.success(`User ${isActive ? 'activated' : 'deactivated'} successfully`);
-      return { ...prev, users, articles };
-    });
+  const updateUserStatus = useCallback(async (userId: string, isActive: boolean) => {
+    try {
+      const response = await fetch(`${API_URL}/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive })
+      });
+
+      if (!response.ok) throw new Error('Failed to update user status');
+
+      setState(prev => {
+        const users = prev.users.map(u =>
+          u.id === userId ? { ...u, isActive } : u
+        );
+        const articles = prev.articles.map(article =>
+          article.author?.id === userId 
+            ? { ...article, author: { ...article.author, isActive } }
+            : article
+        );
+        toast.success(`User ${isActive ? 'activated' : 'deactivated'} successfully`);
+        return { ...prev, users, articles };
+      });
+    } catch (error) {
+      console.error('Update user status error:', error);
+      toast.error('Failed to update user status');
+    }
   }, []);
 
-  const addCategory = useCallback((category: Omit<Category, 'id' | 'articleCount'>) => {
-    setState(prev => {
-      const newCategory: Category = {
-        ...category,
-        id: `cat_${Date.now()}`,
-        articleCount: 0,
-      };
-      toast.success('Category added successfully');
-      return { ...prev, categories: [...prev.categories, newCategory] };
-    });
+  const addCategory = useCallback(async (category: Omit<Category, 'id' | 'articleCount'>) => {
+    try {
+      const response = await fetch(`${API_URL}/categories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(category)
+      });
+      
+      if (!response.ok) throw new Error('Failed to add category');
+      
+      const newCategory = await response.json();
+      
+      setState(prev => {
+        toast.success('Category added successfully');
+        return { ...prev, categories: [...prev.categories, newCategory] };
+      });
+    } catch (error) {
+      console.error('Add category error:', error);
+      toast.error('Failed to add category');
+    }
   }, []);
 
-  const updateCategory = useCallback((categoryId: string, updates: Partial<Category>) => {
-    setState(prev => {
-      const categories = prev.categories.map(cat =>
-        cat.id === categoryId ? { ...cat, ...updates } : cat
-      );
-      toast.success('Category updated successfully');
-      return { ...prev, categories };
-    });
+  const updateCategory = useCallback(async (categoryId: string, updates: Partial<Category>) => {
+    try {
+      const response = await fetch(`${API_URL}/categories/${categoryId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+
+      if (!response.ok) throw new Error('Failed to update category');
+      
+      await response.json(); // Usually returns updated object or we use local updates
+
+      setState(prev => {
+        const categories = prev.categories.map(cat =>
+          cat.id === categoryId ? { ...cat, ...updates } : cat
+        );
+        toast.success('Category updated successfully');
+        return { ...prev, categories };
+      });
+    } catch (error) {
+       console.error('Update category error:', error);
+       toast.error('Failed to update category');
+    }
   }, []);
 
-  const deleteCategory = useCallback((categoryId: string) => {
-    setState(prev => {
-      const categories = prev.categories.filter(cat => cat.id !== categoryId);
-      toast.success('Category deleted successfully');
-      return { ...prev, categories };
-    });
+  const deleteCategory = useCallback(async (categoryId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/categories/${categoryId}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) throw new Error('Failed to delete category');
+
+      setState(prev => {
+        const categories = prev.categories.filter(cat => cat.id !== categoryId);
+        toast.success('Category deleted successfully');
+        return { ...prev, categories };
+      });
+    } catch (error) {
+      console.error('Delete category error:', error);
+      toast.error('Failed to delete category');
+    }
   }, []);
 
-  const updateSiteSettings = useCallback((settings: Partial<SiteSettings>) => {
-    setState(prev => {
-      toast.success('Site settings updated successfully');
-      return { ...prev, siteSettings: { ...prev.siteSettings, ...settings } };
-    });
+  const updateSiteSettings = useCallback(async (settings: Partial<SiteSettings>) => {
+    try {
+       // We need to merge with existing settings for the API call if it expects full object, 
+       // but our API endpoint implementation handles partial updates via separate SQL not really... 
+       // The API I wrote expects full object or at least the fields to update.
+       // Actually, the API I wrote replaces all fields provided.
+       // But wait, the API I wrote expects ALL fields: `const { siteName... } = req.body`.
+       // So we should probably send the FULL merged settings.
+       
+       // Accessing current state inside callback is tricky if we don't have it.
+       // But `setState` gives us `prev`.
+       // We can't use `state` variable directly if it's not in dependency array (which would cause infinite loops if we added it).
+       
+       // Workaround: We will optimistically update state, then call API with the new state?
+       // Or we rely on the component passing the FULL settings?
+       // `AdminDashboard` passes `settingsForm` which is full settings state.
+       
+       const response = await fetch(`${API_URL}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings)
+      });
+      
+      if (!response.ok) throw new Error('Failed to update settings');
+
+      setState(prev => {
+        toast.success('Site settings updated successfully');
+        return { ...prev, siteSettings: { ...prev.siteSettings, ...settings } };
+      });
+    } catch (error) {
+      console.error('Update settings error:', error);
+      toast.error('Failed to update settings');
+    }
   }, []);
 
   // Article CRUD Functions
@@ -300,9 +476,9 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({
           ...articleData,
           authorId: user.id,
-          publishedAt: new Date().toISOString(),
+          publishedAt: articleData.status === 'published' ? new Date().toISOString() : articleData.publishedAt,
           readTime: Math.ceil((articleData.content?.length || 0) / 1000),
-          status: 'published' // Default to published for now
+          status: articleData.status || 'pending'
         })
       });
 
@@ -311,10 +487,24 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
       }
 
       const newArticle = await response.json();
+      
+      // Ensure we have the full article structure including author object
+      const formattedArticle = {
+          ...newArticle,
+          author: user,
+          comments: [],
+          likes: 0
+      };
 
       setState(prev => {
         toast.success('Article created successfully!');
-        return { ...prev, articles: [...prev.articles, newArticle] };
+        // Update category count
+        const categories = prev.categories.map(cat => 
+          cat.id === formattedArticle.category || cat.name === formattedArticle.category
+            ? { ...cat, articleCount: (cat.articleCount || 0) + 1 }
+            : cat
+        );
+        return { ...prev, articles: [...prev.articles, formattedArticle], categories };
       });
     } catch (error) {
       console.error('Create article error:', error);
@@ -322,67 +512,118 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  const updateArticle = useCallback((articleId: string, articleData: Partial<Article>) => {
-    setState(prev => {
-      const oldArticle = prev.articles.find(a => a.id === articleId);
-      const articles = prev.articles.map(article =>
-        article.id === articleId ? { ...article, ...articleData } : article
-      );
-      
-      // Update category counts if category changed
-      let categories = prev.categories;
-      if (articleData.category && oldArticle && oldArticle.category !== articleData.category) {
-        categories = categories.map(cat => {
-          if (cat.name === oldArticle.category) {
-            return { ...cat, articleCount: Math.max(0, cat.articleCount - 1) };
-          }
-          if (cat.name === articleData.category) {
-            return { ...cat, articleCount: cat.articleCount + 1 };
-          }
-          return cat;
-        });
-      }
-      
-      toast.success('Article updated successfully!');
-      return { ...prev, articles, categories };
-    });
+  const updateArticle = useCallback(async (articleId: string, articleData: Partial<Article>) => {
+    try {
+      const response = await fetch(`${API_URL}/articles/${articleId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(articleData)
+      });
+
+      if (!response.ok) throw new Error('Failed to update article');
+
+      setState(prev => {
+        const oldArticle = prev.articles.find(a => a.id === articleId);
+        const articles = prev.articles.map(article =>
+          article.id === articleId ? { ...article, ...articleData } : article
+        );
+        
+        // Update category counts if category changed
+        let categories = prev.categories;
+        if (articleData.category && oldArticle && oldArticle.category !== articleData.category) {
+          categories = categories.map(cat => {
+            if (cat.name === oldArticle.category) {
+              return { ...cat, articleCount: Math.max(0, cat.articleCount - 1) };
+            }
+            if (cat.name === articleData.category) {
+              return { ...cat, articleCount: cat.articleCount + 1 };
+            }
+            return cat;
+          });
+        }
+        
+        toast.success('Article updated successfully!');
+        return { ...prev, articles, categories };
+      });
+    } catch (error) {
+      console.error('Update article error:', error);
+      toast.error('Failed to update article');
+    }
   }, []);
 
   // Podcast CRUD Functions
-  const createPodcast = useCallback((podcastData: Partial<Podcast>) => {
-    setState(prev => {
-      const newPodcast: Podcast = {
-        id: `podcast_${Date.now()}`,
-        title: podcastData.title || 'Untitled Episode',
-        description: podcastData.description || '',
-        coverImage: podcastData.coverImage || 'https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=600&h=600&fit=crop',
-        duration: podcastData.duration || '30:00',
-        publishedAt: podcastData.publishedAt || new Date().toISOString().split('T')[0],
-        audioUrl: podcastData.audioUrl,
-      };
-      
-      toast.success('Podcast episode created successfully!');
-      return { ...prev, podcasts: [newPodcast, ...prev.podcasts] };
-    });
+  const createPodcast = useCallback(async (podcastData: Partial<Podcast>) => {
+    const newPodcast: Podcast = {
+      id: `podcast_${Date.now()}`,
+      title: podcastData.title || 'Untitled Episode',
+      description: podcastData.description || '',
+      coverImage: podcastData.coverImage || 'https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=600&h=600&fit=crop',
+      duration: podcastData.duration || '00:00',
+      publishedAt: podcastData.publishedAt || new Date().toISOString(),
+      audioUrl: podcastData.audioUrl || ''
+    };
+
+    try {
+      const response = await fetch(`${API_URL}/podcasts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newPodcast)
+      });
+
+      if (!response.ok) throw new Error('Failed to create podcast');
+      const savedPodcast = await response.json();
+
+      setState(prev => {
+        toast.success('Podcast episode created successfully!');
+        return { ...prev, podcasts: [savedPodcast, ...prev.podcasts] };
+      });
+    } catch (error) {
+      console.error('Create podcast error:', error);
+      toast.error('Failed to create podcast');
+    }
   }, []);
 
-  const updatePodcast = useCallback((podcastId: string, podcastData: Partial<Podcast>) => {
-    setState(prev => {
-      const podcasts = prev.podcasts.map(podcast =>
-        podcast.id === podcastId ? { ...podcast, ...podcastData } : podcast
-      );
-      
-      toast.success('Podcast episode updated successfully!');
-      return { ...prev, podcasts };
-    });
+  const updatePodcast = useCallback(async (podcastId: string, podcastData: Partial<Podcast>) => {
+    try {
+      const response = await fetch(`${API_URL}/podcasts/${podcastId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(podcastData)
+      });
+
+      if (!response.ok) throw new Error('Failed to update podcast');
+
+      setState(prev => {
+        const podcasts = prev.podcasts.map(podcast =>
+          podcast.id === podcastId ? { ...podcast, ...podcastData } : podcast
+        );
+        
+        toast.success('Podcast episode updated successfully!');
+        return { ...prev, podcasts };
+      });
+    } catch (error) {
+      console.error('Update podcast error:', error);
+      toast.error('Failed to update podcast');
+    }
   }, []);
 
-  const deletePodcast = useCallback((podcastId: string) => {
-    setState(prev => {
-      const podcasts = prev.podcasts.filter(podcast => podcast.id !== podcastId);
-      toast.success('Podcast episode deleted successfully');
-      return { ...prev, podcasts };
-    });
+  const deletePodcast = useCallback(async (podcastId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/podcasts/${podcastId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete podcast');
+
+      setState(prev => {
+        const podcasts = prev.podcasts.filter(podcast => podcast.id !== podcastId);
+        toast.success('Podcast episode deleted successfully');
+        return { ...prev, podcasts };
+      });
+    } catch (error) {
+      console.error('Delete podcast error:', error);
+      toast.error('Failed to delete podcast');
+    }
   }, []);
 
   const value: BlogContextType = {

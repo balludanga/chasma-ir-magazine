@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, TrendingUp, Clock, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,9 +16,27 @@ export function Home() {
   const featuredRef = useRef<HTMLDivElement>(null);
   const trendingRef = useRef<HTMLDivElement>(null);
 
-  const featuredArticles = articles.filter(a => a.featured).slice(0, 3);
-  const trendingArticles = articles.filter(a => a.trending).slice(0, 6);
-  const latestArticles = articles.slice(0, 6);
+  const featuredArticles = articles
+    .filter(a => a.featured && a.status === 'published')
+    .slice(0, 3);
+
+  // Trending: Most watched (viewed) in last 10 days
+  const tenDaysAgo = new Date();
+  tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+  const tenDaysAgoStr = tenDaysAgo.toISOString();
+
+  const trendingArticles = articles
+    .filter(a => a.status === 'published' && a.publishedAt >= tenDaysAgoStr)
+    .sort((a, b) => (b.views || 0) - (a.views || 0))
+    .slice(0, 6);
+
+  const [visibleCount, setVisibleCount] = useState(6);
+
+  const allLatestArticles = articles
+    .filter(a => a.status === 'published')
+    .sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
+
+  const latestArticles = allLatestArticles.slice(0, visibleCount);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -87,7 +105,7 @@ export function Home() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section ref={heroRef} className="relative min-h-screen bg-black overflow-hidden">
+      <section ref={heroRef} className="relative min-h-screen bg-gray-50 overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0" style={{
@@ -99,7 +117,7 @@ export function Home() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20">
           <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[70vh]">
             {/* Left Content */}
-            <div className="text-white z-10">
+            <div className="text-gray-900 z-10">
               <div className="hero-title">
                 <span className="inline-block px-4 py-1.5 bg-[#e5a63f]/20 text-[#e5a63f] rounded-full text-sm font-medium mb-6">
                   Welcome to Chasma IR Magazine
@@ -110,7 +128,7 @@ export function Home() {
                 </h1>
               </div>
               
-              <p className="hero-subtitle text-xl text-gray-400 mb-8 max-w-lg">
+              <p className="hero-subtitle text-xl text-gray-600 mb-8 max-w-lg">
                 Sharp analysis on diplomacy, security, and global affairs.  
                 Explore informed perspectives and stories shaping our interconnected world.
               </p>
@@ -123,14 +141,14 @@ export function Home() {
                   </Button>
                 </Link>
                 <Link to="/writers">
-                  <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+                  <Button size="lg" variant="outline" className="border-gray-300 text-gray-900 hover:bg-gray-100">
                     Meet Our Writers
                   </Button>
                 </Link>
               </div>
 
               {/* Stats */}
-              <div className="hero-cta flex gap-8 mt-12 pt-8 border-t border-white/10">
+              <div className="hero-cta flex gap-8 mt-12 pt-8 border-t border-gray-200">
                 <div>
                   <p className="text-3xl font-bold text-[#e5a63f]">{articles.length}</p>
                   <p className="text-sm text-gray-500">Articles</p>
@@ -177,9 +195,9 @@ export function Home() {
         </div>
 
         {/* Scroll Indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/50">
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-gray-500">
           <span className="text-xs uppercase tracking-wider">Scroll to explore</span>
-          <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center pt-2">
+          <div className="w-6 h-10 border-2 border-gray-300 rounded-full flex justify-center pt-2">
             <div className="w-1.5 h-3 bg-[#e5a63f] rounded-full animate-bounce" />
           </div>
         </div>
@@ -306,23 +324,18 @@ export function Home() {
                 ))}
               </div>
 
-              <div className="mt-10 text-center">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="border-gray-300"
-                  onClick={() => {
-                    const currentLength = latestArticles.length;
-                    const nextBatch = articles.slice(currentLength, currentLength + 6);
-                    // Append the new batch to the rendered list
-                    // (In a real app you’d update state or context; here we just log)
-                    console.log('Appending articles:', nextBatch);
-                    console.log('Load more articles');
-                  }}
-                >
-                  Load More Stories
-                </Button>
-              </div>
+              {visibleCount < allLatestArticles.length && (
+                <div className="mt-10 text-center">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="border-gray-300"
+                    onClick={() => setVisibleCount(prev => prev + 6)}
+                  >
+                    Load More Stories
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Sidebar */}
@@ -394,19 +407,19 @@ export function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-black relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20">
+      <section className="py-20 bg-gray-50 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0" style={{
-            backgroundImage: `radial-gradient(circle at 2px 2px, #e5a63f 1px, transparent 0)`,
-            backgroundSize: '50px 50px',
+            backgroundImage: `radial-gradient(circle at 2px 2px, rgba(229, 166, 63, 0.3) 1px, transparent 0)`,
+            backgroundSize: '40px 40px',
           }} />
         </div>
         
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <h2 className="text-4xl sm:text-5xl font-bold text-white mb-6">
+          <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
             Ready to Share Your Story?
           </h2>
-          <p className="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
             Join our community of writers and reach thousands of readers 
             who are eager to hear your perspective.
           </p>
@@ -417,7 +430,7 @@ export function Home() {
               </Button>
             </Link>
             <Link to="/writers">
-              <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+              <Button size="lg" variant="outline" className="border-gray-300 text-gray-900 hover:bg-gray-100">
                 Meet Our Writers
               </Button>
             </Link>

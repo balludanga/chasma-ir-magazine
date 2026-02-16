@@ -43,6 +43,11 @@ export function Navbar({ onLoginClick }: NavbarProps) {
 
   const isActive = (path: string) => location.pathname === path;
 
+  // Hide Navbar on Article Detail and Editor pages to prevent double headers
+  if (location.pathname.startsWith('/article/') || location.pathname.startsWith('/editor')) {
+    return null;
+  }
+
   return (
     <>
       <nav
@@ -59,7 +64,7 @@ export function Navbar({ onLoginClick }: NavbarProps) {
               <div className="w-10 h-10 bg-[#1e3a5f] rounded-lg flex items-center justify-center transition-transform group-hover:scale-110">
                 <span className="text-white font-bold text-xl">C</span>
               </div>
-              <div className={`flex flex-col ${isScrolled ? 'text-gray-900' : 'text-white'}`}>
+              <div className="flex flex-col text-gray-900">
                 <span className="font-bold text-lg leading-tight">Chasma</span>
                 <span className="text-xs tracking-wider uppercase opacity-80">IR Magazine</span>
               </div>
@@ -74,9 +79,7 @@ export function Navbar({ onLoginClick }: NavbarProps) {
                   className={`text-sm font-medium transition-all hover:text-[#1e3a5f] ${
                     isActive(link.path)
                       ? 'text-[#1e3a5f]'
-                      : isScrolled
-                      ? 'text-gray-700'
-                      : 'text-white/90'
+                      : 'text-gray-700'
                   }`}
                 >
                   {link.name}
@@ -90,9 +93,7 @@ export function Navbar({ onLoginClick }: NavbarProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className={`hidden sm:flex ${
-                  isScrolled ? 'text-gray-700 hover:text-gray-900' : 'text-white hover:text-white/80'
-                }`}
+                className="hidden sm:flex text-gray-700 hover:text-gray-900"
                 onClick={() => navigate('/search')}
               >
                 <Search className="w-5 h-5" />
@@ -189,9 +190,7 @@ export function Navbar({ onLoginClick }: NavbarProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className={`md:hidden ${
-                  isScrolled ? 'text-gray-700' : 'text-white'
-                }`}
+                className="md:hidden text-gray-700"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               >
                 {isMobileMenuOpen ? (
