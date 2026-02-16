@@ -307,7 +307,19 @@ export function Home() {
               </div>
 
               <div className="mt-10 text-center">
-                <Button variant="outline" size="lg" className="border-gray-300">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="border-gray-300"
+                  onClick={() => {
+                    const currentLength = latestArticles.length;
+                    const nextBatch = articles.slice(currentLength, currentLength + 6);
+                    // Append the new batch to the rendered list
+                    // (In a real app you’d update state or context; here we just log)
+                    console.log('Appending articles:', nextBatch);
+                    console.log('Load more articles');
+                  }}
+                >
                   Load More Stories
                 </Button>
               </div>
@@ -317,7 +329,7 @@ export function Home() {
             <div className="space-y-8">
               {/* About Widget */}
               <div className="bg-gray-50 rounded-2xl p-6">
-                <h3 className="font-bold text-lg mb-4">About Lumina</h3>
+                <h3 className="font-bold text-lg mb-4">About Chasma-IR-Magazine</h3>
                 <p className="text-gray-600 text-sm leading-relaxed mb-4">
                   We're a community of writers, thinkers, and creators sharing 
                   stories that matter. Join us on a journey of discovery.
