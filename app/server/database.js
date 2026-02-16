@@ -1,17 +1,111 @@
-import { createClient } from '@supabase/supabase-js';
+import { sql } from '@vercel/postgres';
+import { get } from '@vercel/edge-config';
+import dotenv from 'dotenv';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+dotenv.config();
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const edgeConfigDbUrl = await get('POSTGRES_URL');
+const connectionString = edgeConfigDbUrl || process.env.POSTGRES_URL;
+
+if (!connectionString) {
+  throw new Error('POSTGRES_URL is not set in environment variables or Edge Config');
+}
+
+const db = sql(connectionString);
 
 async function initializeDatabase() {
   try {
-    // In a Supabase setup, schema management (CREATE TABLE) is typically done
-    // directly in the Supabase dashboard or via migrations.
-    // The following CREATE TABLE statements have been removed.
-    // Please ensure these tables exist in your Supabase project.
+    // Users
+    await db`CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      email TEXT UNIQUE,
+      avatar TEXT,
+      role TEXT,
+      bio TEXT,
+      joinedAt TEXT,
+      subscribers INTEGER,
+      isActive INTEGER
+    )`;
 
+    // Articles
+    await db`CREATE TABLE IF NOT EXISTS articles (
+      id TEXT PRIMARY KEY,
+      title TEXT,
+      excerpt TEXT,
+      content TEXT,
+      coverImage TEXT,
+      category TEXT,
+      authorId TEXT,
+      publishedAt TEXT,
+      readTime INTEGER,
+      likes INTEGER,
+      tags TEXT,
+      status TEXT,
+      views INTEGER,
+      FOREIGN KEY(authorId) REFERENCES users(id)
+    )`;
+
+    // Categories
+    await db`CREATE TABLE IF NOT EXISTS categories (
+      id TEXT PRIMARY KEY,
+      name TEXT UNIQUE,
+      slug TEXT,
+      description TEXT,
+      image TEXT,
+      articleCount INTEGER,
+      isActive INTEGER
+    )`;
+
+    // Podcasts
+    await db`CREATE TABLE IF NOT EXISTS podcasts (
+      id TEXT PRIMARY KEY,
+      title TEXT,
+      description TEXT,
+      coverImage TEXT,
+      duration TEXT,
+      publishedAt TEXT,
+      audioUrl TEXT
+    )`;
+
+    // Comments
+    await db`CREATE TABLE IF NOT EXISTS comments (
+      id TEXT PRIMARY KEY,
+      articleId TEXT,
+      authorId TEXT,
+      content TEXT,
+      createdAt TEXT,
+      likes INTEGER,
+      FOREIGN KEY(articleId) REFERENCES articles(id),
+      FOREIGN KEY(authorId) REFERENCES users(id)
+    )`;
+
+    // Site Settings
+    await db`CREATE TABLE IF NOT EXISTS site_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      siteName TEXT,
+      siteDescription TEXT,
+      logo TEXT,
+      primaryColor TEXT,
+      socialLinks TEXT
+    )`;
+
+    // Subscriptions
+    await db`CREATE TABLE IF NOT EXISTS subscriptions (
+      id TEXT PRIMARY KEY,
+      writerId TEXT,
+      subscriberId TEXT,
+      subscribedAt TEXT
+    )`;
+
+    // Liked Articles
+    await db`CREATE TABLE IF NOT EXISTS liked_articles (
+      id TEXT PRIMARY KEY,
+      articleId TEXT,
+      userId TEXT,
+      createdAt TEXT
+    )`;
+    
     await seedData();
   } catch (error) {
     console.error('Error initializing database:', error);
@@ -20,8 +114,8 @@ async function initializeDatabase() {
 
 async function seedData() {
   try {
-    const { count } = await supabase.from('users').select('count', { count: 'exact' });
-    if (count === 0) {
+    const { rows } = await db`SELECT count(*) as count FROM users`;
+    if (rows[0].count === '0') {
       console.log("Seeding data...");
       
       // Seed Users
@@ -59,8 +153,9 @@ async function seedData() {
         }
       ];
 
-      const { error: usersError } = await supabase.from('users').insert(users);
-      if (usersError) throw usersError;
+      for (const user of users) {
+        await db`INSERT INTO users (id, name, email, avatar, role, bio, joinedAt, subscribers, isActive) VALUES (${user.id}, ${user.name}, ${user.email}, ${user.avatar}, ${user.role}, ${user.bio || ''}, ${user.joinedAt}, ${user.subscribers || 0}, ${user.isActive})`;
+      }
 
       // Seed Categories
       const categories = [
@@ -84,23 +179,15 @@ async function seedData() {
         }
       ];
       
-      const { error: categoriesError } = await supabase.from('categories').insert(categories);
-      if (categoriesError) throw categoriesError;
+      for (const cat of categories) {
+        await db`INSERT INTO categories (id, name, slug, description, image, articleCount, isActive) VALUES (${cat.id}, ${cat.name}, ${cat.slug}, ${cat.description}, ${cat.image}, ${cat.articleCount}, ${cat.isActive})`;
+      }
 
        // Seed Site Settings
-       const siteSettings = {
-          id: 1,
-          siteName: 'Chasma IR Magazine',
-          siteDescription: 'Expert analysis on International Relations',
-          logo: '/logo.png',
-          primaryColor: '#c78a55ff',
-          socialLinks: {
-            twitter: 'https://twitter.com/chasmaIR',
-            facebook: 'https://facebook.com/chasmaIR'
-          }
-       };
-       const { error: settingsError } = await supabase.from('site_settings').insert([siteSettings]);
-       if (settingsError) throw settingsError;
+       await db`INSERT INTO site_settings (id, siteName, siteDescription, logo, primaryColor, socialLinks) VALUES (1, 'Chasma IR Magazine', 'Expert analysis on International Relations', '/logo.png', '#c78a55ff', ${JSON.stringify({
+          twitter: 'https://twitter.com/chasmaIR',
+          facebook: 'https://facebook.com/chasmaIR'
+        })})`;
 
       console.log("Data seeding completed.");
     }
@@ -109,5 +196,5 @@ async function seedData() {
   }
 }
 
-export { supabase, initializeDatabase };
+export { db, initializeDatabase };
 
