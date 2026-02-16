@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Heart, Share2, Bookmark, Clock, Calendar, MessageCircle, Home, Loader2 } from 'lucide-react';
+import { Heart, Share2, Bookmark, Clock, Calendar, MessageCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';

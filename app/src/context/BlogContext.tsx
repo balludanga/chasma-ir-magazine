@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import type { BlogContextType, BlogState, Article, Comment, Category, SiteSettings, Podcast } from '@/types';
+import type { BlogContextType, BlogState, Article, Comment, Category, SiteSettings, Podcast, User } from '@/types';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
 
