@@ -14,7 +14,11 @@ const app = express();
 app.set('trust proxy', 1); // Trust first proxy (Vercel)
 const PORT = 3001;
 
-app.use(cors({ origin: 'http://localhost:5175' }));
+// Allow all origins for now to fix Vercel deployment issues
+app.use(cors({ 
+  origin: true,
+  credentials: true 
+}));
 app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -22,7 +26,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const storage = multer.memoryStorage();
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+  limits: { fileSize: 4 * 1024 * 1024 } // 4MB limit (Vercel has 4.5MB payload limit)
 });
 
 // Initialize database on startup
