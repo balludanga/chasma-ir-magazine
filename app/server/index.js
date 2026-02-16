@@ -76,7 +76,7 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
     }
   });
 
-app.get('/api/files/:id', async (req, res) => {
+app.get(['/api/files/:id', '/files/:id'], async (req, res) => {
   const { id } = req.params;
   try {
     const { rows } = await db`SELECT * FROM files WHERE id = ${id}`;
@@ -91,6 +91,20 @@ app.get('/api/files/:id', async (req, res) => {
   } catch (error) {
     console.error('File retrieval error:', error);
     res.status(500).json({ error: 'Failed to retrieve file' });
+  }
+});
+
+app.get('/api/debug/recent-files', async (req, res) => {
+  try {
+    const { rows } = await db`
+      SELECT id, filename, mimetype, length(data) as size, createdAt 
+      FROM files 
+      ORDER BY createdAt DESC 
+      LIMIT 5
+    `;
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
