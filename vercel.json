@@ -1,8 +1,26 @@
 {
   "version": 2,
-  "framework": "vite",
-  "installCommand": "cd app && npm ci",
-  "buildCommand": "cd app && npm run build",
-  "devCommand": "cd app && npm run dev",
-  "outputDirectory": "app/dist"
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "builds": [
+    {
+      "src": "app/server/index.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "app/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ]
 }

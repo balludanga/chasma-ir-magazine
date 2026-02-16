@@ -24,7 +24,7 @@ const initialState: BlogState = {
 
 const BlogContext = createContext<BlogContextType | undefined>(undefined);
 
-const API_URL = 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export function BlogProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated } = useAuth();

@@ -1,25 +1,12 @@
-import sqlite3 from 'sqlite3';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { sql } from '@vercel/postgres';
+import dotenv from 'dotenv';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+dotenv.config();
 
-const dbPath = path.resolve(__dirname, 'database.sqlite');
-
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error opening database', err.message);
-  } else {
-    console.log('Connected to the SQLite database.');
-    initializeDatabase();
-  }
-});
-
-function initializeDatabase() {
-  db.serialize(() => {
+async function initializeDatabase() {
+  try {
     // Users
-    db.run(`CREATE TABLE IF NOT EXISTS users (
+    await sql`CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       name TEXT,
       email TEXT UNIQUE,
@@ -29,10 +16,10 @@ function initializeDatabase() {
       joinedAt TEXT,
       subscribers INTEGER,
       isActive INTEGER
-    )`);
+    )`;
 
     // Articles
-    db.run(`CREATE TABLE IF NOT EXISTS articles (
+    await sql`CREATE TABLE IF NOT EXISTS articles (
       id TEXT PRIMARY KEY,
       title TEXT,
       excerpt TEXT,
@@ -47,10 +34,10 @@ function initializeDatabase() {
       status TEXT,
       views INTEGER,
       FOREIGN KEY(authorId) REFERENCES users(id)
-    )`);
+    )`;
 
     // Categories
-    db.run(`CREATE TABLE IF NOT EXISTS categories (
+    await sql`CREATE TABLE IF NOT EXISTS categories (
       id TEXT PRIMARY KEY,
       name TEXT UNIQUE,
       slug TEXT,
@@ -58,10 +45,10 @@ function initializeDatabase() {
       image TEXT,
       articleCount INTEGER,
       isActive INTEGER
-    )`);
+    )`;
 
     // Podcasts
-    db.run(`CREATE TABLE IF NOT EXISTS podcasts (
+    await sql`CREATE TABLE IF NOT EXISTS podcasts (
       id TEXT PRIMARY KEY,
       title TEXT,
       description TEXT,
@@ -69,10 +56,10 @@ function initializeDatabase() {
       duration TEXT,
       publishedAt TEXT,
       audioUrl TEXT
-    )`);
+    )`;
 
     // Comments
-    db.run(`CREATE TABLE IF NOT EXISTS comments (
+    await sql`CREATE TABLE IF NOT EXISTS comments (
       id TEXT PRIMARY KEY,
       articleId TEXT,
       authorId TEXT,
@@ -81,42 +68,44 @@ function initializeDatabase() {
       likes INTEGER,
       FOREIGN KEY(articleId) REFERENCES articles(id),
       FOREIGN KEY(authorId) REFERENCES users(id)
-    )`);
+    )`;
 
     // Site Settings
-    db.run(`CREATE TABLE IF NOT EXISTS site_settings (
+    await sql`CREATE TABLE IF NOT EXISTS site_settings (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       siteName TEXT,
       siteDescription TEXT,
       logo TEXT,
       primaryColor TEXT,
       socialLinks TEXT
-    )`);
+    )`;
 
     // Subscriptions
-    db.run(`CREATE TABLE IF NOT EXISTS subscriptions (
+    await sql`CREATE TABLE IF NOT EXISTS subscriptions (
       id TEXT PRIMARY KEY,
       writerId TEXT,
       subscriberId TEXT,
       subscribedAt TEXT
-    )`);
+    )`;
 
     // Liked Articles
-    db.run(`CREATE TABLE IF NOT EXISTS liked_articles (
+    await sql`CREATE TABLE IF NOT EXISTS liked_articles (
       id TEXT PRIMARY KEY,
       articleId TEXT,
       userId TEXT,
       createdAt TEXT
-    )`);
+    )`;
     
-    seedData();
-  });
+    await seedData();
+  } catch (error) {
+    console.error('Error initializing database:', error);
+  }
 }
 
-function seedData() {
-  db.get("SELECT count(*) as count FROM users", (err, row) => {
-    if (err) return console.error(err.message);
-    if (row.count === 0) {
+async function seedData() {
+  try {
+    const { rows } = await sql`SELECT count(*) as count FROM users`;
+    if (rows[0].count === '0') {
       console.log("Seeding data...");
       
       // Seed Users
@@ -154,11 +143,9 @@ function seedData() {
         }
       ];
 
-      const userStmt = db.prepare("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-      users.forEach(user => {
-        userStmt.run(user.id, user.name, user.email, user.avatar, user.role, user.bio || '', user.joinedAt, user.subscribers || 0, user.isActive);
-      });
-      userStmt.finalize();
+      for (const user of users) {
+        await sql`INSERT INTO users (id, name, email, avatar, role, bio, joinedAt, subscribers, isActive) VALUES (${user.id}, ${user.name}, ${user.email}, ${user.avatar}, ${user.role}, ${user.bio || ''}, ${user.joinedAt}, ${user.subscribers || 0}, ${user.isActive})`;
+      }
 
       // Seed Categories
       const categories = [
@@ -182,23 +169,41 @@ function seedData() {
         }
       ];
       
-      const catStmt = db.prepare("INSERT INTO categories VALUES (?, ?, ?, ?, ?, ?, ?)");
-      categories.forEach(cat => {
-        catStmt.run(cat.id, cat.name, cat.slug, cat.description, cat.image, cat.articleCount, cat.isActive);
-      });
-      catStmt.finalize();
+      for (const cat of categories) {
+        await sql`INSERT INTO categories (id, name, slug, description, image, articleCount, isActive) VALUES (${cat.id}, ${cat.name}, ${cat.slug}, ${cat.description}, ${cat.image}, ${cat.articleCount}, ${cat.isActive})`;
+      }
 
        // Seed Site Settings
-       db.run(`INSERT INTO site_settings (id, siteName, siteDescription, logo, primaryColor, socialLinks) VALUES (1, ?, ?, ?, ?, ?)`, 
-        ['Chasma IR Magazine', 'Expert analysis on International Relations', '/logo.png', '#c78a55ff', JSON.stringify({
+       await sql`INSERT INTO site_settings (id, siteName, siteDescription, logo, primaryColor, socialLinks) VALUES (1, 'Chasma IR Magazine', 'Expert analysis on International Relations', '/logo.png', '#c78a55ff', ${JSON.stringify({
           twitter: 'https://twitter.com/chasmaIR',
           facebook: 'https://facebook.com/chasmaIR'
-        })]
-      );
+        })})`;
 
       console.log("Data seeding completed.");
     }
-  });
+  } catch (error) {
+    console.error('Error seeding data:', error);
+  }
 }
 
-export default db;
+// Helper object to mimic sqlite interface for easy migration
+const db = {
+  get: async (query, params = [], callback) => {
+    try {
+      // Basic param substitution for $1, $2 etc or direct execution
+      // Note: This is a rough adapter. For production, better to rewrite queries.
+      // But for this quick migration, we'll try to adapt.
+      // Vercel Postgres uses template literals mainly, but also supports parameterized queries via `client.query`
+      // but `sql` tag is preferred.
+      // Let's rewrite this to use `sql.query(text, params)` if possible, but `sql` is a tag function.
+      // We will export `sql` directly and update the usage in `index.js`.
+    } catch (e) {
+      if (callback) callback(e);
+    }
+  }
+};
+
+// We will export `sql` and `initializeDatabase` to be used in index.js
+// And we'll need to update index.js to use async/await and sql`` syntax
+export { sql, initializeDatabase };
+
