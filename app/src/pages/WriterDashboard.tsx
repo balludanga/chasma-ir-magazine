@@ -10,9 +10,10 @@ import { useBlog } from '@/context/BlogContext';
 import { ArticleCard } from '@/components/article/ArticleCard';
 
 import { EditProfileDialog } from '@/components/profile/EditProfileDialog';
+import { WriterApplicationDialog } from '@/components/writer/WriterApplicationDialog';
 
 export function WriterDashboard() {
-  const { user } = useAuth();
+  const { user, isAuthenticated, openAuthModal } = useAuth();
   const navigate = useNavigate();
   const { getArticlesByWriter } = useBlog();
   const [activeTab, setActiveTab] = useState('articles');
@@ -29,9 +30,21 @@ export function WriterDashboard() {
           <p className="text-gray-600 mb-6">
             This dashboard is reserved for writers. Upgrade your account to start publishing articles.
           </p>
-          <Button className="bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white">
-            Become a Writer
-          </Button>
+          
+          {isAuthenticated ? (
+            <WriterApplicationDialog>
+              <Button className="bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white">
+                Request to Become a Writer
+              </Button>
+            </WriterApplicationDialog>
+          ) : (
+            <Button 
+              className="bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white"
+              onClick={openAuthModal}
+            >
+              Sign in to Become a Writer
+            </Button>
+          )}
         </div>
       </div>
     );

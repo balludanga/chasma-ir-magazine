@@ -399,6 +399,94 @@ app.put('/api/users/:id', async (req, res) => {
   }
 });
 
+// --- Writer Request Routes ---
+
+app.post('/api/writer-requests', upload.single('biodata'), async (req, res) => {
+  const { userId, answers, demoContent } = req.body;
+  
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID is required' });
+  }
+
+  const id = `req_${Date.now()}`;
+  const status = 'pending';
+  const requestedAt = new Date().toISOString();
+  let biodataUrl = null;
+
+  try {
+    // Check if request already exists
+    const { rows: existing } = await db`SELECT * FROM writer_requests WHERE userId = ${userId} AND status = 'pending'`;
+    if (existing.length > 0) {
+      return res.status(400).json({ error: 'Request already pending' });
+    }
+
+    // Handle Biodata Upload
+    if (req.file) {
+      // For simplicity in this demo, we'll store small files in DB like images if no blob token
+      // Ideally should be S3/Blob.
+      // Reuse existing file table logic or upload directly
+      // Since `upload` middleware is memoryStorage, we have the buffer.
+      
+      const fileId = `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const filename = req.file.originalname;
+      const mimetype = req.file.mimetype;
+      const buffer = req.file.buffer;
+
+      // Store in 'files' table
+      await db`
+        INSERT INTO files (id, filename, mimetype, data, createdAt)
+        VALUES (${fileId}, ${filename}, ${mimetype}, ${buffer}, ${new Date().toISOString()})
+      `;
+      
+      // Construct URL (assuming /api/files/:id serves it)
+      // We need to ensure we have a route to serve files.
+      // The current index.js doesn't seem to have a GET /api/files/:id route visible in the snippet.
+      // I should add one.
+      biodataUrl = `/api/files/${fileId}`;
+    }
+
+    await db`
+      INSERT INTO writer_requests (id, userId, status, requestedAt, biodataUrl, questionAnswers, demoContent) 
+      VALUES (${id}, ${userId}, ${status}, ${requestedAt}, ${biodataUrl}, ${answers}, ${demoContent})
+    `;
+    
+    res.json({ id, userId, status, requestedAt });
+  } catch (error) {
+    console.error('Writer request error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Serve files from DB
+app.get('/api/files/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { rows } = await db`SELECT * FROM files WHERE id = ${id}`;
+    if (rows.length === 0) return res.status(404).send('File not found');
+    
+    const file = rows[0];
+    res.setHeader('Content-Type', file.mimetype);
+    res.setHeader('Content-Disposition', `inline; filename="${file.filename}"`);
+    res.send(file.data);
+  } catch (error) {
+    res.status(500).send('Error retrieving file');
+  }
+});
+
+app.get('/api/writer-requests', async (req, res) => {
+  try {
+    const { rows } = await db`
+      SELECT r.*, u.name as userName, u.email as userEmail, u.avatar as userAvatar
+      FROM writer_requests r
+      JOIN users u ON r.userId = u.id
+      ORDER BY r.requestedAt DESC
+    `;
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // --- Category Routes ---
 
 app.get('/api/categories', async (req, res) => {

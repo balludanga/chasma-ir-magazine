@@ -102,6 +102,28 @@ async function initializeDatabase() {
       createdAt TEXT
     )`;
 
+    // Writer Requests
+    await db`CREATE TABLE IF NOT EXISTS writer_requests (
+      id TEXT PRIMARY KEY,
+      userId TEXT,
+      status TEXT,
+      requestedAt TEXT,
+      biodataUrl TEXT,
+      questionAnswers TEXT,
+      demoContent TEXT,
+      FOREIGN KEY(userId) REFERENCES users(id)
+    )`;
+
+    try {
+      // Attempt to add new columns if they don't exist (SQLite doesn't support IF NOT EXISTS for columns in ALTER TABLE directly in all versions, but we can try)
+      // For Postgres/Vercel Postgres, we can do:
+      await db`ALTER TABLE writer_requests ADD COLUMN IF NOT EXISTS biodataUrl TEXT`;
+      await db`ALTER TABLE writer_requests ADD COLUMN IF NOT EXISTS questionAnswers TEXT`;
+      await db`ALTER TABLE writer_requests ADD COLUMN IF NOT EXISTS demoContent TEXT`;
+    } catch (e) {
+      console.log('Columns might already exist or migration not needed', e.message);
+    }
+
     // Site Settings
     await db`CREATE TABLE IF NOT EXISTS site_settings (
       id INTEGER PRIMARY KEY CHECK (id = 1),

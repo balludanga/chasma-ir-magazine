@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, TrendingUp, Clock, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ArticleCard } from '@/components/article/ArticleCard';
 import { useBlog } from '@/context/BlogContext';
+import { useAuth } from '@/context/AuthContext';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Writers } from './Writers';
@@ -12,6 +13,8 @@ gsap.registerPlugin(ScrollTrigger);
 
 export function Home() {
   const { articles, categories, podcasts } = useBlog();
+  const { isAuthenticated, openAuthModal } = useAuth();
+  const navigate = useNavigate();
   const heroRef = useRef<HTMLDivElement>(null);
   const featuredRef = useRef<HTMLDivElement>(null);
   const trendingRef = useRef<HTMLDivElement>(null);
@@ -424,11 +427,19 @@ export function Home() {
             who are eager to hear your perspective.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link to="/signup">
-              <Button size="lg" className="bg-[#e5a63f] hover:bg-[#d4952f] text-white px-8">
-                Become a Writer
-              </Button>
-            </Link>
+            <Button 
+              size="lg" 
+              className="bg-[#e5a63f] hover:bg-[#d4952f] text-white px-8"
+              onClick={() => {
+                if (isAuthenticated) {
+                  navigate('/writer-dashboard');
+                } else {
+                  openAuthModal();
+                }
+              }}
+            >
+              Become a Writer
+            </Button>
             <Link to="/writers">
               <Button size="lg" variant="outline" className="border-gray-300 text-gray-900 hover:bg-gray-100">
                 Meet Our Writers

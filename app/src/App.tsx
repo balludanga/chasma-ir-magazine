@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/context/AuthContext';
@@ -21,19 +20,17 @@ import { Tag } from '@/pages/Tag';
 import { PodcastDetail } from '@/pages/PodcastDetail';
 import './App.css';
 
-function AppContent() {
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+import { useAuth } from '@/context/AuthContext';
 
-  const openLogin = () => {
-    setIsAuthModalOpen(true);
-  };
+function AppContent() {
+  const { isAuthModalOpen, openAuthModal, closeAuthModal } = useAuth();
 
   return (
     <div className="min-h-screen bg-white">
-      <Navbar onLoginClick={openLogin} />
+      <Navbar onLoginClick={openAuthModal} />
       <AuthModal 
         isOpen={isAuthModalOpen} 
-        onClose={() => setIsAuthModalOpen(false)} 
+        onClose={closeAuthModal} 
       />
       
       <main>

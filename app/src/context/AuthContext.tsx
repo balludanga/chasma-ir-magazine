@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 import type { AuthContextType, AuthState, User } from '@/types';
 
 const initialState: AuthState = {
@@ -16,6 +15,7 @@ const API_URL = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL ||
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>(initialState);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const navigate = useNavigate();
 
   // Check for saved session on mount
@@ -98,9 +98,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = useCallback(async (updates: Partial<User>) => {
     if (!state.user) return;
-    
-    // Use relative path in production (Vercel) to avoid localhost issues
-    const API_URL = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
 
     try {
       const response = await fetch(`${API_URL}/users/${state.user.id}`, {
@@ -108,23 +105,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to update profile');
-      }
+
+      if (!response.ok) throw new Error('Failed to update profile');
 
       const updatedUser = await response.json();
+      const newUser = { ...state.user, ...updatedUser };
       
-      localStorage.setItem('chasma_user', JSON.stringify(updatedUser));
-      setState(prev => ({
-        ...prev,
-        user: updatedUser,
-      }));
-      
-      toast.success('Profile updated successfully');
+      localStorage.setItem('chasma_user', JSON.stringify(newUser));
+      setState(prev => ({ ...prev, user: newUser }));
     } catch (error) {
       console.error('Update profile error:', error);
-      toast.error('Failed to update profile');
+      throw error;
     }
   }, [state.user]);
 
@@ -138,16 +129,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     navigate('/');
   }, [navigate]);
 
-  const value: AuthContextType = {
-    ...state,
-    login,
-    signup,
-    logout,
-    updateProfile,
-  };
+  const openAuthModal = useCallback(() => setIsAuthModalOpen(true), []);
+  const closeAuthModal = useCallback(() => setIsAuthModalOpen(false), []);
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ 
+      ...state, 
+      login, 
+      signup, 
+      logout, 
+      updateProfile,
+      openAuthModal,
+      closeAuthModal,
+      isAuthModalOpen 
+    }}>
       {children}
     </AuthContext.Provider>
   );
