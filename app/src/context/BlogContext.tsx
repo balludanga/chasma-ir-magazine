@@ -2,78 +2,69 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import type { BlogContextType, BlogState, Article, Comment, Category, SiteSettings, Podcast } from '@/types';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
-import { mockArticles, mockCategories, mockPodcasts, mockUsers, mockComments, siteSettings as defaultSiteSettings } from '@/data/mockData';
+
+const defaultSiteSettings: SiteSettings = {
+  siteName: 'Chasma IR Magazine',
+  siteDescription: 'International Relations Analysis',
+  logo: '',
+  primaryColor: '#000000',
+  socialLinks: {}
+};
 
 const initialState: BlogState = {
-  articles: mockArticles,
-  categories: mockCategories,
-  podcasts: mockPodcasts,
+  articles: [],
+  categories: [],
+  podcasts: [],
   likedArticles: [],
   subscriptions: [],
-  comments: mockComments,
+  comments: [],
   siteSettings: defaultSiteSettings,
-  users: mockUsers,
+  users: [],
 };
 
 const BlogContext = createContext<BlogContextType | undefined>(undefined);
 
+const API_URL = 'http://localhost:3001/api';
+
 export function BlogProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated } = useAuth();
-  const [state, setState] = useState<BlogState>(() => {
-    const loadData = <T,>(key: string, fallback: T): T => {
+  const [state, setState] = useState<BlogState>(initialState);
+
+  // Load from API
+  useEffect(() => {
+    const fetchData = async () => {
       try {
-        const saved = localStorage.getItem(key);
-        return saved ? JSON.parse(saved) : fallback;
+        const [articlesRes, categoriesRes, usersRes, settingsRes] = await Promise.all([
+          fetch(`${API_URL}/articles`),
+          fetch(`${API_URL}/categories`),
+          fetch(`${API_URL}/users`),
+          fetch(`${API_URL}/settings`)
+        ]);
+
+        if (articlesRes.ok && categoriesRes.ok && usersRes.ok) {
+            const articles = await articlesRes.json();
+            const categories = await categoriesRes.json();
+            const users = await usersRes.json();
+            const settings = await settingsRes.json();
+            
+            setState(prev => ({
+                ...prev,
+                articles: Array.isArray(articles) ? articles : prev.articles,
+                categories: Array.isArray(categories) ? categories : prev.categories,
+                users: Array.isArray(users) ? users : prev.users,
+                siteSettings: settings.id ? settings : prev.siteSettings
+            }));
+        }
       } catch (error) {
-        console.error(`Error loading ${key} from localStorage:`, error);
-        return fallback;
+        console.error("Failed to load data from server:", error);
+        toast.error("Could not connect to database server");
       }
     };
+    fetchData();
+  }, []);
 
-    return {
-      articles: loadData('chasma_articles', initialState.articles),
-      categories: loadData('chasma_categories', initialState.categories),
-      podcasts: loadData('chasma_podcasts', initialState.podcasts),
-      likedArticles: loadData('chasma_likes', initialState.likedArticles),
-      subscriptions: loadData('chasma_subscriptions', initialState.subscriptions),
-      comments: loadData('chasma_comments', initialState.comments),
-      siteSettings: loadData('chasma_settings', initialState.siteSettings),
-      users: loadData('chasma_users', initialState.users),
-    };
-  });
+  // Persistence effects removed in favor of API
 
-  // Persistence effects
-  useEffect(() => {
-    localStorage.setItem('chasma_articles', JSON.stringify(state.articles));
-  }, [state.articles]);
-
-  useEffect(() => {
-    localStorage.setItem('chasma_categories', JSON.stringify(state.categories));
-  }, [state.categories]);
-
-  useEffect(() => {
-    localStorage.setItem('chasma_podcasts', JSON.stringify(state.podcasts));
-  }, [state.podcasts]);
-
-  useEffect(() => {
-    localStorage.setItem('chasma_likes', JSON.stringify(state.likedArticles));
-  }, [state.likedArticles]);
-
-  useEffect(() => {
-    localStorage.setItem('chasma_subscriptions', JSON.stringify(state.subscriptions));
-  }, [state.subscriptions]);
-
-  useEffect(() => {
-    localStorage.setItem('chasma_comments', JSON.stringify(state.comments));
-  }, [state.comments]);
-
-  useEffect(() => {
-    localStorage.setItem('chasma_settings', JSON.stringify(state.siteSettings));
-  }, [state.siteSettings]);
-
-  useEffect(() => {
-    localStorage.setItem('chasma_users', JSON.stringify(state.users));
-  }, [state.users]);
 
   const likeArticle = useCallback((articleId: string) => {
     if (!isAuthenticated) {
@@ -296,40 +287,39 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Article CRUD Functions
-  const createArticle = useCallback((articleData: Partial<Article>) => {
+  const createArticle = useCallback(async (articleData: Partial<Article>) => {
     if (!user) {
-      toast.error('Please sign in to create articles');
+      toast.error('You must be logged in to create an article');
       return;
     }
 
-    setState(prev => {
-      const newArticle: Article = {
-        id: `article_${Date.now()}`,
-        title: articleData.title || 'Untitled',
-        excerpt: articleData.excerpt || '',
-        content: articleData.content || '',
-        coverImage: articleData.coverImage || 'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=1200&h=800&fit=crop',
-        category: articleData.category || 'Uncategorized',
-        author: user,
-        publishedAt: articleData.publishedAt || new Date().toISOString().split('T')[0],
-        readTime: articleData.readTime || 5,
-        likes: 0,
-        comments: [],
-        tags: articleData.tags || [],
-        status: articleData.status || 'draft',
-        views: 0,
-      };
-      
-      // Update category article count
-      const categories = prev.categories.map(cat =>
-        cat.name === newArticle.category
-          ? { ...cat, articleCount: cat.articleCount + 1 }
-          : cat
-      );
-      
-      toast.success('Article created successfully!');
-      return { ...prev, articles: [newArticle, ...prev.articles], categories };
-    });
+    try {
+      const response = await fetch(`${API_URL}/articles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...articleData,
+          authorId: user.id,
+          publishedAt: new Date().toISOString(),
+          readTime: Math.ceil((articleData.content?.length || 0) / 1000),
+          status: 'published' // Default to published for now
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create article');
+      }
+
+      const newArticle = await response.json();
+
+      setState(prev => {
+        toast.success('Article created successfully!');
+        return { ...prev, articles: [...prev.articles, newArticle] };
+      });
+    } catch (error) {
+      console.error('Create article error:', error);
+      toast.error('Failed to create article');
+    }
   }, [user]);
 
   const updateArticle = useCallback((articleId: string, articleData: Partial<Article>) => {
