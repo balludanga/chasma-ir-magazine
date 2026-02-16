@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { AuthContextType, AuthState } from '@/types';
+import { toast } from 'sonner';
+import type { AuthContextType, AuthState, User } from '@/types';
 
 const initialState: AuthState = {
   user: null,
@@ -94,6 +95,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const updateProfile = useCallback(async (updates: Partial<User>) => {
+    if (!state.user) return;
+    try {
+      const response = await fetch(`${API_URL}/users/${state.user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
+
+      const updatedUser = await response.json();
+      
+      // Update local storage
+      localStorage.setItem('chasma_user', JSON.stringify(updatedUser));
+      
+      // Update state
+      setState(prev => ({
+        ...prev,
+        user: updatedUser
+      }));
+      
+      toast.success('Profile updated successfully');
+    } catch (error) {
+      console.error('Update profile error:', error);
+      toast.error('Failed to update profile');
+      throw error;
+    }
+  }, [state.user]);
+
   const logout = useCallback(() => {
     localStorage.removeItem('chasma_user');
     setState({
@@ -109,6 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     signup,
     logout,
+    updateProfile,
   };
 
   return (

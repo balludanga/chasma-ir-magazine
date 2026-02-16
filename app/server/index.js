@@ -255,13 +255,27 @@ app.put('/api/users/:id', async (req, res) => {
   const body = req.body;
   
   try {
-    if (body.isActive !== undefined) {
-      await db`UPDATE users SET isActive = ${body.isActive ? 1 : 0} WHERE id = ${id}`;
-    }
-    if (body.role !== undefined) {
-      await db`UPDATE users SET role = ${body.role} WHERE id = ${id}`;
-    }
-    res.json({ message: "Updated" });
+    const { rows } = await db`SELECT * FROM users WHERE id = ${id}`;
+    if (rows.length === 0) return res.status(404).json({ error: "User not found" });
+    const existing = rows[0];
+
+    // Merge updates
+    const updated = { ...existing, ...body };
+    if (body.isActive !== undefined) updated.isActive = body.isActive ? 1 : 0;
+    
+    // Ensure nullable fields are handled
+    const bio = updated.bio || null;
+    const avatar = updated.avatar || null;
+
+    await db`UPDATE users SET 
+      name = ${updated.name}, 
+      role = ${updated.role}, 
+      bio = ${bio}, 
+      avatar = ${avatar},
+      isActive = ${updated.isActive} 
+      WHERE id = ${id}`;
+
+    res.json(updated);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

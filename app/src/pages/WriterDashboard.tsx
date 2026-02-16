@@ -9,6 +9,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useBlog } from '@/context/BlogContext';
 import { ArticleCard } from '@/components/article/ArticleCard';
 
+import { EditProfileDialog } from '@/components/profile/EditProfileDialog';
+
 export function WriterDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -60,13 +62,21 @@ export function WriterDashboard() {
             <h1 className="text-3xl font-bold text-gray-900">Writer Dashboard</h1>
             <p className="text-gray-500 mt-1">Manage your articles and track performance</p>
           </div>
-          <Button 
-            onClick={() => navigate('/editor')}
-            className="bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Article
-          </Button>
+          <div className="flex gap-2">
+            <EditProfileDialog>
+              <Button variant="outline">
+                <Users className="w-4 h-4 mr-2" />
+                Edit Profile
+              </Button>
+            </EditProfileDialog>
+            <Button 
+              onClick={() => navigate('/editor')}
+              className="bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Article
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}

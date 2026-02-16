@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/context/AuthContext';
 import { useBlog } from '@/context/BlogContext';
 import { ArticleCard } from '@/components/article/ArticleCard';
+import { EditProfileDialog } from '@/components/profile/EditProfileDialog';
 import { toast } from 'sonner';
 
 export function UserDashboard() {
@@ -88,10 +89,12 @@ export function UserDashboard() {
             </div>
             
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
-              </Button>
+              <EditProfileDialog>
+                <Button variant="outline" size="sm">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </Button>
+              </EditProfileDialog>
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="w-4 h-4 mr-2" />
                 Logout
