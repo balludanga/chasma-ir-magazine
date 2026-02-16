@@ -111,8 +111,8 @@ export interface AuthState {
 }
 
 export interface AuthContextType extends AuthState {
-  login: (email: string, password: string, role?: 'reader' | 'writer' | 'admin') => Promise<void>;
-  signup: (name: string, email: string, password: string, role: 'reader' | 'writer') => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -126,6 +126,7 @@ export interface BlogState {
   comments: Comment[];
   siteSettings: SiteSettings;
   users: User[];
+  isLoading: boolean;
 }
 
 export interface BlogContextType extends BlogState {
@@ -145,7 +146,7 @@ export interface BlogContextType extends BlogState {
   // Admin functions
   updateArticleStatus: (articleId: string, status: 'published' | 'draft' | 'pending') => void;
   deleteArticle: (articleId: string) => void;
-  updateUserStatus: (userId: string, isActive: boolean) => void;
+  updateUser: (userId: string, updates: Partial<User>) => void;
   addCategory: (category: Omit<Category, 'id' | 'articleCount'>) => void;
   updateCategory: (categoryId: string, updates: Partial<Category>) => void;
   deleteCategory: (categoryId: string) => void;

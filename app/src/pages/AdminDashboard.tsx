@@ -28,6 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/context/AuthContext';
 import { useBlog } from '@/context/BlogContext';
 import { PodcastEditor } from '@/components/editor/PodcastEditor';
@@ -46,7 +47,7 @@ export function AdminDashboard() {
     updateArticleStatus, 
     updateArticle,
     deleteArticle,
-    updateUserStatus,
+    updateUser,
     addCategory,
     deleteCategory,
     updateSiteSettings,
@@ -531,9 +532,19 @@ export function AdminDashboard() {
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <Badge variant="outline" className="capitalize">
-                              {u.role}
-                            </Badge>
+                            <Select 
+                              value={u.role} 
+                              onValueChange={(value) => updateUser(u.id, { role: value as 'reader' | 'writer' | 'admin' })}
+                            >
+                              <SelectTrigger className="w-28 h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="reader">Reader</SelectItem>
+                                <SelectItem value="writer">Writer</SelectItem>
+                                <SelectItem value="admin">Admin</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600">
                             {new Date(u.joinedAt).toLocaleDateString()}
@@ -550,7 +561,7 @@ export function AdminDashboard() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => updateUserStatus(u.id, !u.isActive)}
+                              onClick={() => updateUser(u.id, { isActive: !u.isActive })}
                               className={u.isActive ? 'text-red-600' : 'text-green-600'}
                             >
                               {u.isActive ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}

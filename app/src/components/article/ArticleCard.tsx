@@ -68,13 +68,13 @@ export function ArticleCard({ article, variant = 'default', showActions = true }
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Avatar className="w-8 h-8 border-2 border-white/30">
-                <AvatarImage src={article.author.avatar} alt={article.author.name} />
+                <AvatarImage src={article.author?.avatar} alt={article.author?.name} />
                 <AvatarFallback className="bg-[#1e3a5f] text-white text-xs">
-                  {article.author.name.charAt(0)}
+                  {article.author?.name?.charAt(0) || '?'}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="text-sm font-medium">{article.author.name}</p>
+                <p className="text-sm font-medium">{article.author?.name || 'Unknown'}</p>
                 <p className="text-xs text-white/60">{article.publishedAt}</p>
               </div>
             </div>
@@ -120,7 +120,7 @@ export function ArticleCard({ article, variant = 'default', showActions = true }
             {article.title}
           </h4>
           <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-            <span>{article.author.name}</span>
+            <span>{article.author?.name || 'Unknown'}</span>
             <span>•</span>
             <span>{article.readTime} min</span>
           </div>
@@ -165,12 +165,12 @@ export function ArticleCard({ article, variant = 'default', showActions = true }
           <div className="flex items-center justify-between mt-auto">
             <div className="flex items-center gap-2">
               <Avatar className="w-6 h-6">
-                <AvatarImage src={article.author.avatar} alt={article.author.name} />
+                <AvatarImage src={article.author?.avatar} alt={article.author?.name} />
                 <AvatarFallback className="bg-[#1e3a5f] text-white text-xs">
-                  {article.author.name.charAt(0)}
+                  {article.author?.name?.charAt(0) || '?'}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-xs text-gray-600">{article.author.name}</span>
+              <span className="text-xs text-gray-600">{article.author?.name || 'Unknown'}</span>
             </div>
             
             {showActions && (
@@ -236,13 +236,13 @@ export function ArticleCard({ article, variant = 'default', showActions = true }
         <div className="flex items-center justify-between pt-4 border-t border-gray-100">
           <div className="flex items-center gap-2">
             <Avatar className="w-7 h-7">
-              <AvatarImage src={article.author.avatar} alt={article.author.name} />
+              <AvatarImage src={article.author?.avatar} alt={article.author?.name} />
               <AvatarFallback className="bg-[#1e3a5f] text-white text-xs">
-                {article.author.name.charAt(0)}
+                {article.author?.name?.charAt(0) || '?'}
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="text-xs font-medium text-gray-900">{article.author.name}</p>
+              <p className="text-xs font-medium text-gray-900">{article.author?.name || 'Unknown'}</p>
               <p className="text-xs text-gray-500">{article.publishedAt}</p>
             </div>
           </div>

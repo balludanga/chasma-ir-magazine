@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Eye, EyeOff, Mail, Lock, User, Shield, PenTool } from 'lucide-react';
+import { X, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,15 +10,12 @@ import { toast } from 'sonner';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultRole?: 'reader' | 'writer' | 'admin';
 }
 
-export function AuthModal({ isOpen, onClose, defaultRole = 'reader' }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
-  const [loginRole, setLoginRole] = useState<'reader' | 'writer' | 'admin'>(defaultRole);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [signupRole, setSignupRole] = useState<'reader' | 'writer'>('reader');
   
   // Form states
   const [loginEmail, setLoginEmail] = useState('');
@@ -34,7 +31,7 @@ export function AuthModal({ isOpen, onClose, defaultRole = 'reader' }: AuthModal
     setIsLoading(true);
     
     try {
-      await login(loginEmail, loginPassword, loginRole);
+      await login(loginEmail, loginPassword);
       toast.success(`Welcome back!`);
       onClose();
       resetForms();
@@ -50,7 +47,7 @@ export function AuthModal({ isOpen, onClose, defaultRole = 'reader' }: AuthModal
     setIsLoading(true);
     
     try {
-      await signup(signupName, signupEmail, signupPassword, signupRole);
+      await signup(signupName, signupEmail, signupPassword);
       toast.success('Account created successfully!');
       onClose();
       resetForms();
@@ -109,46 +106,6 @@ export function AuthModal({ isOpen, onClose, defaultRole = 'reader' }: AuthModal
             </TabsList>
             
             <TabsContent value="login">
-              {/* Role Selection */}
-              <div className="grid grid-cols-3 gap-2 mb-6">
-                <button
-                  type="button"
-                  onClick={() => setLoginRole('reader')}
-                  className={`p-3 rounded-lg border-2 text-sm font-medium transition-all flex flex-col items-center gap-1 ${
-                    loginRole === 'reader'
-                      ? 'border-[#1e3a5f] bg-[#1e3a5f]/5 text-[#1e3a5f]'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                  }`}
-                >
-                  <User className="w-5 h-5" />
-                  Reader
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLoginRole('writer')}
-                  className={`p-3 rounded-lg border-2 text-sm font-medium transition-all flex flex-col items-center gap-1 ${
-                    loginRole === 'writer'
-                      ? 'border-[#1e3a5f] bg-[#1e3a5f]/5 text-[#1e3a5f]'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                  }`}
-                >
-                  <PenTool className="w-5 h-5" />
-                  Writer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLoginRole('admin')}
-                  className={`p-3 rounded-lg border-2 text-sm font-medium transition-all flex flex-col items-center gap-1 ${
-                    loginRole === 'admin'
-                      ? 'border-[#1e3a5f] bg-[#1e3a5f]/5 text-[#1e3a5f]'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                  }`}
-                >
-                  <Shield className="w-5 h-5" />
-                  Admin
-                </button>
-              </div>
-
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email</Label>
@@ -204,7 +161,7 @@ export function AuthModal({ isOpen, onClose, defaultRole = 'reader' }: AuthModal
                   className="w-full bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white"
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Signing in...' : `Sign In as ${loginRole.charAt(0).toUpperCase() + loginRole.slice(1)}`}
+                  {isLoading ? 'Signing in...' : 'Sign In'}
                 </Button>
                 
                 
@@ -264,36 +221,6 @@ export function AuthModal({ isOpen, onClose, defaultRole = 'reader' }: AuthModal
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>I want to</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSignupRole('reader')}
-                      className={`p-3 rounded-lg border-2 text-sm font-medium transition-all flex flex-col items-center gap-1 ${
-                        signupRole === 'reader'
-                          ? 'border-[#1e3a5f] bg-[#1e3a5f]/5 text-[#1e3a5f]'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      }`}
-                    >
-                      <User className="w-5 h-5" />
-                      Read Articles
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSignupRole('writer')}
-                      className={`p-3 rounded-lg border-2 text-sm font-medium transition-all flex flex-col items-center gap-1 ${
-                        signupRole === 'writer'
-                          ? 'border-[#1e3a5f] bg-[#1e3a5f]/5 text-[#1e3a5f]'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      }`}
-                    >
-                      <PenTool className="w-5 h-5" />
-                      Write Articles
                     </button>
                   </div>
                 </div>

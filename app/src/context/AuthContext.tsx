@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const login = useCallback(async (email: string, _password: string, expectedRole?: 'reader' | 'writer' | 'admin') => {
+  const login = useCallback(async (email: string, _password: string) => {
     try {
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
@@ -51,10 +51,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const user = await response.json();
 
-      if (expectedRole && user.role !== expectedRole) {
-        throw new Error(`This login is for ${expectedRole}s only. Please use the appropriate login page.`);
-      }
-
       localStorage.setItem('chasma_user', JSON.stringify(user));
       setState({
         user,
@@ -67,12 +63,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const signup = useCallback(async (name: string, email: string, _password: string, role: 'reader' | 'writer') => {
+  const signup = useCallback(async (name: string, email: string, _password: string) => {
     try {
       const response = await fetch(`${API_URL}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password: _password, role })
+        body: JSON.stringify({ name, email, password: _password, role: 'reader' })
       });
 
       if (!response.ok) {

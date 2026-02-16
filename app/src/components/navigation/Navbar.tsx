@@ -43,16 +43,18 @@ export function Navbar({ onLoginClick }: NavbarProps) {
 
   const isActive = (path: string) => location.pathname === path;
 
-  // Hide Navbar on Article Detail and Editor pages to prevent double headers
-  if (location.pathname.startsWith('/article/') || location.pathname.startsWith('/editor')) {
+  // Hide Navbar on Editor pages only
+  if (location.pathname.startsWith('/editor')) {
     return null;
   }
+  
+  const isArticlePage = location.pathname.startsWith('/article/');
 
   return (
     <>
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-          isScrolled
+          isScrolled || isArticlePage
             ? 'bg-white/95 backdrop-blur-md shadow-sm py-3'
             : 'bg-transparent py-5'
         }`}

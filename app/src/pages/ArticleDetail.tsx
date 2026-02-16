@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Heart, Share2, Bookmark, Clock, Calendar, MessageCircle, Home } from 'lucide-react';
+import { ArrowLeft, Heart, Share2, Bookmark, Clock, Calendar, MessageCircle, Home, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -15,13 +15,13 @@ import { gsap } from 'gsap';
 export function ArticleDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getArticleById, isArticleLiked, likeArticle, unlikeArticle, shareArticle, subscribeToWriter, isSubscribedToWriter, articles } = useBlog();
+  const { getArticleById, isArticleLiked, likeArticle, unlikeArticle, shareArticle, subscribeToWriter, isSubscribedToWriter, articles, isLoading } = useBlog();
   const { isAuthenticated } = useAuth();
   const contentRef = useRef<HTMLDivElement>(null);
 
   const article = getArticleById(id || '');
   const isLiked = article ? isArticleLiked(article.id) : false;
-  const isSubscribed = article ? isSubscribedToWriter(article.author.id) : false;
+  const isSubscribed = article ? isSubscribedToWriter(article.author?.id || '') : false;
 
   // Get related articles
   const relatedArticles = articles
@@ -29,6 +29,8 @@ export function ArticleDetail() {
     .slice(0, 3);
 
   useEffect(() => {
+    if (isLoading) return;
+
     if (!article) {
       navigate('/');
       return;
@@ -60,7 +62,15 @@ export function ArticleDetail() {
 
     // Scroll to top
     window.scrollTo(0, 0);
-  }, [article, navigate]);
+  }, [article, navigate, isLoading]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white pt-16">
+        <Loader2 className="w-12 h-12 animate-spin text-[#e5a63f]" />
+      </div>
+    );
+  }
 
   if (!article) return null;
 
@@ -93,64 +103,8 @@ export function ArticleDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Navigation Bar */}
-      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate(-1)}
-                className="text-gray-600"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/')}
-                className="text-gray-600"
-              >
-                <Home className="w-4 h-4 mr-2" />
-                Home
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLike}
-                className={isLiked ? 'text-red-500' : 'text-gray-600'}
-              >
-                <Heart className={`w-4 h-4 mr-2 ${isLiked ? 'fill-current' : ''}`} />
-                {article.likes}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleShare}
-                className="text-gray-600"
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                Share
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleBookmark}
-                className="text-gray-600"
-              >
-                <Bookmark className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <div className="min-h-screen bg-white pt-16">
+      
       {/* Article Header */}
       <header className="article-header relative">
         {/* Cover Image */}
@@ -196,20 +150,20 @@ export function ArticleDetail() {
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-4">
                 <Avatar className="w-14 h-14 border-2 border-[#e5a63f]">
-                  <AvatarImage src={article.author.avatar} alt={article.author.name} />
+                  <AvatarImage src={article.author?.avatar} alt={article.author?.name} />
                   <AvatarFallback className="bg-[#e5a63f] text-white text-lg">
-                    {article.author.name.charAt(0)}
+                    {article.author?.name?.charAt(0) || '?'}
                   </AvatarFallback>
                 </Avatar>
                 <div>
                   <Link 
-                    to={`/writer/${article.author.id}`}
+                    to={`/writer/${article.author?.id || '#'}`}
                     className="font-semibold text-gray-900 hover:text-[#e5a63f] transition-colors"
                   >
-                    {article.author.name}
+                    {article.author?.name || 'Unknown Writer'}
                   </Link>
                   <p className="text-sm text-gray-500">
-                    {article.author.subscribers?.toLocaleString()} subscribers
+                    {article.author?.subscribers?.toLocaleString()} subscribers
                   </p>
                 </div>
               </div>
@@ -220,6 +174,39 @@ export function ArticleDetail() {
                 className={isSubscribed ? 'border-[#e5a63f] text-[#e5a63f]' : 'bg-[#e5a63f] hover:bg-[#d4952f] text-white'}
               >
                 {isSubscribed ? 'Subscribed' : 'Subscribe'}
+              </Button>
+            </div>
+
+            <Separator className="my-6" />
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLike}
+                  className={isLiked ? 'text-red-500' : 'text-gray-600'}
+                >
+                  <Heart className={`w-5 h-5 mr-2 ${isLiked ? 'fill-current' : ''}`} />
+                  {article.likes}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleShare}
+                  className="text-gray-600"
+                >
+                  <Share2 className="w-5 h-5 mr-2" />
+                  Share
+                </Button>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBookmark}
+                className="text-gray-600"
+              >
+                <Bookmark className="w-5 h-5" />
               </Button>
             </div>
           </div>

@@ -258,6 +258,9 @@ app.put('/api/users/:id', async (req, res) => {
     if (body.isActive !== undefined) {
       await db`UPDATE users SET isActive = ${body.isActive ? 1 : 0} WHERE id = ${id}`;
     }
+    if (body.role !== undefined) {
+      await db`UPDATE users SET role = ${body.role} WHERE id = ${id}`;
+    }
     res.json({ message: "Updated" });
   } catch (error) {
     res.status(500).json({ error: error.message });

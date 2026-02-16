@@ -20,6 +20,7 @@ const initialState: BlogState = {
   comments: [],
   siteSettings: defaultSiteSettings,
   users: [],
+  isLoading: true,
 };
 
 const BlogContext = createContext<BlogContextType | undefined>(undefined);
@@ -67,12 +68,14 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
                 users: Array.isArray(users) ? users : prev.users,
                 siteSettings: settings.id ? settings : prev.siteSettings,
                 podcasts: Array.isArray(podcasts) ? podcasts : prev.podcasts,
-                comments: Array.isArray(comments) ? comments : []
+                comments: Array.isArray(comments) ? comments : [],
+                isLoading: false
             }));
         }
       } catch (error) {
         console.error("Failed to load data from server:", error);
         toast.error("Could not connect to database server");
+        setState(prev => ({ ...prev, isLoading: false }));
       }
     };
     fetchData();
@@ -333,31 +336,31 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const updateUserStatus = useCallback(async (userId: string, isActive: boolean) => {
+  const updateUser = useCallback(async (userId: string, updates: Partial<User>) => {
     try {
       const response = await fetch(`${API_URL}/users/${userId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive })
+        body: JSON.stringify(updates)
       });
 
-      if (!response.ok) throw new Error('Failed to update user status');
+      if (!response.ok) throw new Error('Failed to update user');
 
       setState(prev => {
         const users = prev.users.map(u =>
-          u.id === userId ? { ...u, isActive } : u
+          u.id === userId ? { ...u, ...updates } : u
         );
         const articles = prev.articles.map(article =>
           article.author?.id === userId 
-            ? { ...article, author: { ...article.author, isActive } }
+            ? { ...article, author: { ...article.author, ...updates } }
             : article
         );
-        toast.success(`User ${isActive ? 'activated' : 'deactivated'} successfully`);
+        toast.success(`User updated successfully`);
         return { ...prev, users, articles };
       });
     } catch (error) {
-      console.error('Update user status error:', error);
-      toast.error('Failed to update user status');
+      console.error('Update user error:', error);
+      toast.error('Failed to update user');
     }
   }, []);
 
@@ -643,7 +646,7 @@ export function BlogProvider({ children }: { children: React.ReactNode }) {
     shareArticle,
     updateArticleStatus,
     deleteArticle,
-    updateUserStatus,
+    updateUser,
     addCategory,
     updateCategory,
     deleteCategory,

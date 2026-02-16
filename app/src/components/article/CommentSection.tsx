@@ -15,15 +15,15 @@ function CommentItem({ comment }: { comment: Comment }) {
   return (
     <div className="flex gap-4 p-4 rounded-xl bg-gray-50">
       <Avatar className="w-10 h-10 flex-shrink-0">
-        <AvatarImage src={comment.author.avatar} alt={comment.author.name} />
+        <AvatarImage src={comment.author?.avatar} alt={comment.author?.name} />
         <AvatarFallback className="bg-[#e5a63f] text-white">
-          {comment.author.name.charAt(0)}
+          {comment.author?.name?.charAt(0) || '?'}
         </AvatarFallback>
       </Avatar>
       
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className="font-semibold text-gray-900">{comment.author.name}</span>
+          <span className="font-semibold text-gray-900">{comment.author?.name || 'Unknown'}</span>
           <span className="text-xs text-gray-500">
             {new Date(comment.createdAt).toLocaleDateString('en-US', {
               month: 'short',

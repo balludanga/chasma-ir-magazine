@@ -23,20 +23,17 @@ import './App.css';
 
 function AppContent() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [defaultAuthRole, setDefaultAuthRole] = useState<'reader' | 'writer' | 'admin'>('reader');
 
-  const openLogin = (role: 'reader' | 'writer' | 'admin' = 'reader') => {
-    setDefaultAuthRole(role);
+  const openLogin = () => {
     setIsAuthModalOpen(true);
   };
 
   return (
     <div className="min-h-screen bg-white">
-      <Navbar onLoginClick={() => openLogin('reader')} />
+      <Navbar onLoginClick={openLogin} />
       <AuthModal 
         isOpen={isAuthModalOpen} 
         onClose={() => setIsAuthModalOpen(false)} 
-        defaultRole={defaultAuthRole}
       />
       
       <main>
