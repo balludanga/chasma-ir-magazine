@@ -19,65 +19,61 @@ const BlogContext = createContext<BlogContextType | undefined>(undefined);
 
 export function BlogProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated } = useAuth();
-  const [state, setState] = useState<BlogState>(initialState);
+  const [state, setState] = useState<BlogState>(() => {
+    const loadData = <T,>(key: string, fallback: T): T => {
+      try {
+        const saved = localStorage.getItem(key);
+        return saved ? JSON.parse(saved) : fallback;
+      } catch (error) {
+        console.error(`Error loading ${key} from localStorage:`, error);
+        return fallback;
+      }
+    };
 
-  // Load saved data from localStorage on mount
+    return {
+      articles: loadData('chasma_articles', initialState.articles),
+      categories: loadData('chasma_categories', initialState.categories),
+      podcasts: loadData('chasma_podcasts', initialState.podcasts),
+      likedArticles: loadData('chasma_likes', initialState.likedArticles),
+      subscriptions: loadData('chasma_subscriptions', initialState.subscriptions),
+      comments: loadData('chasma_comments', initialState.comments),
+      siteSettings: loadData('chasma_settings', initialState.siteSettings),
+      users: loadData('chasma_users', initialState.users),
+    };
+  });
+
+  // Persistence effects
   useEffect(() => {
-    const savedLikes = localStorage.getItem('chasma_likes');
-    const savedSubscriptions = localStorage.getItem('chasma_subscriptions');
-    const savedSettings = localStorage.getItem('chasma_settings');
-    const savedUsers = localStorage.getItem('chasma_registered_users');
-    
-    if (savedLikes) {
-      try {
-        const likes = JSON.parse(savedLikes);
-        setState(prev => ({ ...prev, likedArticles: likes }));
-      } catch {
-        localStorage.removeItem('chasma_likes');
-      }
-    }
-    
-    if (savedSubscriptions) {
-      try {
-        const subscriptions = JSON.parse(savedSubscriptions);
-        setState(prev => ({ ...prev, subscriptions }));
-      } catch {
-        localStorage.removeItem('chasma_subscriptions');
-      }
-    }
+    localStorage.setItem('chasma_articles', JSON.stringify(state.articles));
+  }, [state.articles]);
 
-    if (savedSettings) {
-      try {
-        const settings = JSON.parse(savedSettings);
-        setState(prev => ({ ...prev, siteSettings: { ...prev.siteSettings, ...settings } }));
-      } catch {
-        localStorage.removeItem('chasma_settings');
-      }
-    }
-    if (savedUsers) {
-      try {
-        const users = JSON.parse(savedUsers);
-        setState(prev => ({ ...prev, users }));
-      } catch {
-        localStorage.removeItem('chasma_registered_users');
-      }
-    }
-  }, []);
+  useEffect(() => {
+    localStorage.setItem('chasma_categories', JSON.stringify(state.categories));
+  }, [state.categories]);
 
-  // Save likes to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('chasma_podcasts', JSON.stringify(state.podcasts));
+  }, [state.podcasts]);
+
   useEffect(() => {
     localStorage.setItem('chasma_likes', JSON.stringify(state.likedArticles));
   }, [state.likedArticles]);
 
-  // Save subscriptions to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('chasma_subscriptions', JSON.stringify(state.subscriptions));
   }, [state.subscriptions]);
 
-  // Save settings to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('chasma_comments', JSON.stringify(state.comments));
+  }, [state.comments]);
+
   useEffect(() => {
     localStorage.setItem('chasma_settings', JSON.stringify(state.siteSettings));
   }, [state.siteSettings]);
+
+  useEffect(() => {
+    localStorage.setItem('chasma_users', JSON.stringify(state.users));
+  }, [state.users]);
 
   const likeArticle = useCallback((articleId: string) => {
     if (!isAuthenticated) {
