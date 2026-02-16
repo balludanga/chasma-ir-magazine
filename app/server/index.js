@@ -87,6 +87,7 @@ app.get(['/api/files/:id', '/files/:id'], async (req, res) => {
     const file = rows[0];
     res.setHeader('Content-Type', file.mimetype);
     res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'); // Fix ORB blocking
     res.send(file.data); // Send buffer
   } catch (error) {
     console.error('File retrieval error:', error);
