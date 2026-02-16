@@ -115,6 +115,9 @@ export interface AuthContextType extends AuthState {
   signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => Promise<void>;
+  openAuthModal: () => void;
+  closeAuthModal: () => void;
+  isAuthModalOpen: boolean;
 }
 
 // Blog Context Types
