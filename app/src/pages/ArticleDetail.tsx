@@ -220,7 +220,7 @@ export function ArticleDetail() {
           <div className="lg:col-span-2">
             <article 
               ref={contentRef}
-              className="article-content prose prose-lg max-w-none"
+              className="article-content prose prose-lg max-w-none text-justify"
               dangerouslySetInnerHTML={{ __html: article.content }}
             />
 
