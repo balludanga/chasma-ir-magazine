@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Send, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Save, Send } from 'lucide-react';
 import type { Article } from '@/types';
 import { QuillEditor } from '@/components/editor/QuillEditor';
 
