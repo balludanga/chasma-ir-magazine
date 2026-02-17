@@ -89,6 +89,24 @@ export interface Notification {
   createdAt: string;
 }
 
+// Writer Request Types
+export interface WriterRequest {
+  id: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  userAvatar?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: string;
+  biodataUrl: string;
+  questionAnswers: {
+    experience: string;
+    topics: string;
+    motivation: string;
+  };
+  demoContent: string;
+}
+
 // Site Settings Types
 export interface SiteSettings {
   siteName: string;

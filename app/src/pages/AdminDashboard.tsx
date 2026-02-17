@@ -33,7 +33,9 @@ import { useAuth } from '@/context/AuthContext';
 import { useBlog } from '@/context/BlogContext';
 import { PodcastEditor } from '@/components/editor/PodcastEditor';
 import { toast } from 'sonner';
-import type { Article, Podcast } from '@/types';
+import type { Article, Podcast, WriterRequest } from '@/types';
+
+const API_URL = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
 
 export function AdminDashboard() {
   const { user } = useAuth();
@@ -66,6 +68,48 @@ export function AdminDashboard() {
   const [isPodcastEditorOpen, setIsPodcastEditorOpen] = useState(false);
   const [editingPodcast, setEditingPodcast] = useState<Podcast | null>(null);
   const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create');
+  const [writerRequests, setWriterRequests] = useState<WriterRequest[]>([]);
+
+  useEffect(() => {
+    if (activeTab === 'writer-requests') {
+      fetchWriterRequests();
+    }
+  }, [activeTab]);
+
+  const fetchWriterRequests = async () => {
+    try {
+      const response = await fetch(`${API_URL}/writer-requests`);
+      if (response.ok) {
+        const data = await response.json();
+        setWriterRequests(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch writer requests:', error);
+      toast.error('Failed to load writer requests');
+    }
+  };
+
+  const handleWriterRequestStatus = async (requestId: string, status: 'approved' | 'rejected') => {
+    try {
+      const response = await fetch(`${API_URL}/writer-requests/${requestId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      if (response.ok) {
+        toast.success(`Request ${status} successfully`);
+        fetchWriterRequests();
+      } else {
+        throw new Error('Failed to update status');
+      }
+    } catch (error) {
+      console.error('Error updating request:', error);
+      toast.error('Failed to update request status');
+    }
+  };
 
   // Check if user is admin
   if (user?.role !== 'admin') {
@@ -249,6 +293,10 @@ export function AdminDashboard() {
             <TabsTrigger value="users" className="rounded-lg">
               <Users className="w-4 h-4 mr-2" />
               Users
+            </TabsTrigger>
+            <TabsTrigger value="writer-requests" className="rounded-lg">
+              <UserCheck className="w-4 h-4 mr-2" />
+              Writer Requests
             </TabsTrigger>
             <TabsTrigger value="categories" className="rounded-lg">
               <FolderTree className="w-4 h-4 mr-2" />
@@ -571,6 +619,110 @@ export function AdminDashboard() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="writer-requests">
+            <Card>
+              <CardHeader>
+                <CardTitle>Writer Applications</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {writerRequests.length === 0 ? (
+                    <p className="text-center text-gray-500 py-8">No pending writer requests.</p>
+                  ) : (
+                    writerRequests.map((request) => (
+                      <div key={request.id} className="border rounded-xl p-6 bg-white shadow-sm">
+                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+                          <div className="flex items-start gap-4">
+                            <Avatar className="w-12 h-12">
+                              <AvatarImage src={request.userAvatar} />
+                              <AvatarFallback>{request.userName?.charAt(0) || 'U'}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <h3 className="text-lg font-semibold">{request.userName}</h3>
+                              <p className="text-sm text-gray-500">{request.userEmail}</p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                Applied on {new Date(request.requestedAt).toLocaleDateString()}
+                              </p>
+                              <div className="mt-4 space-y-2">
+                                <div>
+                                  <span className="text-sm font-medium text-gray-700">Biodata: </span>
+                                  <a 
+                                    href={request.biodataUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-sm text-blue-600 hover:underline"
+                                  >
+                                    View Resume/CV
+                                  </a>
+                                </div>
+                                {request.questionAnswers && (
+                                  <>
+                                    <div>
+                                      <span className="text-sm font-medium text-gray-700">Experience: </span>
+                                      <p className="text-sm text-gray-600 mt-1">{request.questionAnswers.experience}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-sm font-medium text-gray-700">Topics of Interest: </span>
+                                      <p className="text-sm text-gray-600 mt-1">{request.questionAnswers.topics}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-sm font-medium text-gray-700">Motivation: </span>
+                                      <p className="text-sm text-gray-600 mt-1">{request.questionAnswers.motivation}</p>
+                                    </div>
+                                  </>
+                                )}
+                                {request.demoContent && (
+                                  <div>
+                                    <span className="text-sm font-medium text-gray-700">Demo Article: </span>
+                                    <div className="mt-1 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 max-h-40 overflow-y-auto whitespace-pre-wrap">
+                                      {request.demoContent}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-col gap-2 min-w-[120px]">
+                            <Badge 
+                              className={`w-full justify-center ${
+                                request.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                request.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                'bg-yellow-100 text-yellow-700'
+                              }`}
+                            >
+                              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                            </Badge>
+                            
+                            {request.status === 'pending' && (
+                              <>
+                                <Button 
+                                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                                  onClick={() => handleWriterRequestStatus(request.id, 'approved')}
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  Approve
+                                </Button>
+                                <Button 
+                                  variant="destructive"
+                                  className="w-full"
+                                  onClick={() => handleWriterRequestStatus(request.id, 'rejected')}
+                                >
+                                  <XCircle className="w-4 h-4 mr-2" />
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>

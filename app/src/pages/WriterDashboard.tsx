@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Edit2, Eye, Heart, MessageCircle, TrendingUp, Users, FileText, BarChart3 } from 'lucide-react';
+import { Plus, Edit2, Eye, Heart, MessageCircle, TrendingUp, Users, FileText, BarChart3, Clock, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,12 +11,37 @@ import { ArticleCard } from '@/components/article/ArticleCard';
 
 import { EditProfileDialog } from '@/components/profile/EditProfileDialog';
 import { WriterApplicationDialog } from '@/components/writer/WriterApplicationDialog';
+import type { WriterRequest } from '@/types';
+
+const API_URL = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
 
 export function WriterDashboard() {
   const { user, isAuthenticated, openAuthModal } = useAuth();
   const navigate = useNavigate();
   const { getArticlesByWriter } = useBlog();
   const [activeTab, setActiveTab] = useState('articles');
+  const [writerRequestStatus, setWriterRequestStatus] = useState<WriterRequest | null>(null);
+
+  useEffect(() => {
+    if (user && user.role !== 'writer' && user.role !== 'admin') {
+      fetchWriterRequestStatus();
+    }
+  }, [user]);
+
+  const fetchWriterRequestStatus = async () => {
+    if (!user) return;
+    try {
+      const response = await fetch(`${API_URL}/writer-requests?userId=${user.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.length > 0) {
+          setWriterRequestStatus(data[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch writer request status:', error);
+    }
+  };
 
   // If user is not a writer, show message
   if (user?.role !== 'writer' && user?.role !== 'admin') {
@@ -32,11 +57,45 @@ export function WriterDashboard() {
           </p>
           
           {isAuthenticated ? (
-            <WriterApplicationDialog>
-              <Button className="bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white">
-                Request to Become a Writer
-              </Button>
-            </WriterApplicationDialog>
+            writerRequestStatus ? (
+              writerRequestStatus.status === 'pending' ? (
+                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-4">
+                    <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Clock className="w-6 h-6 text-yellow-600" />
+                    </div>
+                    <p className="text-yellow-800 font-bold text-lg mb-2">Application Pending</p>
+                    <p className="text-yellow-700">
+                      Your request to become a writer is under review. We will notify you once it is approved.
+                    </p>
+                 </div>
+              ) : writerRequestStatus.status === 'rejected' ? (
+                 <div className="space-y-6">
+                   <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                      <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <AlertCircle className="w-6 h-6 text-red-600" />
+                      </div>
+                      <p className="text-red-800 font-bold text-lg mb-2">Application Update</p>
+                      <p className="text-red-700 mb-4">
+                        Thank you for applying to be a writer. Unfortunately, your application has not been approved at this time.
+                      </p>
+                      <p className="text-red-600 text-sm">
+                        We encourage you to continue engaging with our community and try applying again in the future with an updated portfolio.
+                      </p>
+                   </div>
+                   <WriterApplicationDialog>
+                      <Button className="bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white w-full">
+                        Re-apply to Become a Writer
+                      </Button>
+                   </WriterApplicationDialog>
+                 </div>
+              ) : null
+            ) : (
+              <WriterApplicationDialog>
+                <Button className="bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white">
+                  Request to Become a Writer
+                </Button>
+              </WriterApplicationDialog>
+            )
           ) : (
             <Button 
               className="bg-[#1e3a5f] hover:bg-[#2d4a6f] text-white"

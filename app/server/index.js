@@ -39,21 +39,13 @@ app.get('/api/health', (req, res) => {
 });
 
 app.post('/api/upload', upload.single('image'), async (req, res) => {
-    console.log('Upload request received');
-    
-    // Check if using Vercel Blob client upload (multipart request without file usually means client upload token request or different flow)
-    // But here we implement server-side upload to Blob for simplicity if client upload is not used.
-    // However, to support big files > 4.5MB on Vercel, we should encourage client uploads.
-    // For now, let's modify this endpoint to upload to Vercel Blob instead of DB.
-
+    // Check if using Vercel Blob client upload
     if (!req.file) {
-      console.error('No file in request. Headers:', req.headers);
       return res.status(400).json({ error: 'No file uploaded' });
     }
     
     // Check if Vercel Blob token is available
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
-        console.warn('BLOB_READ_WRITE_TOKEN not found, falling back to database storage.');
         // Fallback to existing DB storage logic
         return uploadToDatabase(req, res);
     }
@@ -73,9 +65,8 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
                   .toBuffer();
                 contentType = 'image/webp';
                 filename = filename.replace(/\.[^/.]+$/, "") + ".webp";
-                console.log(`Image compressed for Blob. New size: ${buffer.length}`);
             } catch (e) {
-                console.warn('Sharp optimization failed, uploading original file to Blob');
+                // Sharp optimization failed, uploading original file
             }
         }
 
@@ -85,12 +76,9 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
             contentType: contentType
         });
 
-        console.log('File uploaded to Vercel Blob:', blob.url);
         res.json({ url: blob.url });
     } catch (error) {
         console.error('Vercel Blob upload error:', error);
-        // Fallback to DB if Blob fails? Or just error.
-        // Let's error for now to avoid confusion.
         res.status(500).json({ error: 'Failed to upload file to cloud storage: ' + error.message });
     }
 });
@@ -103,8 +91,6 @@ async function uploadToDatabase(req, res) {
     let buffer = req.file.buffer; // Buffer data
   
     try {
-      console.log(`Processing file for DB: ${filename}, size: ${buffer.length}, type: ${mimetype}`);
-
       // Process image to reduce size
       if (mimetype.startsWith('image/')) {
         try {
@@ -115,15 +101,12 @@ async function uploadToDatabase(req, res) {
             
             mimetype = 'image/webp';
             filename = filename.replace(/\.[^/.]+$/, "") + ".webp";
-            console.log(`Image compressed. New size: ${buffer.length}, type: ${mimetype}`);
         } catch (sharpError) {
             console.error('Sharp processing failed, falling back to original file:', sharpError);
-            // Fallback to original buffer if sharp fails (e.g. missing binaries on Vercel)
         }
       }
 
       // Convert buffer to hex string for Postgres BYTEA to avoid JSON serialization issues
-      // This ensures the data is stored as raw bytes, not as a JSON string
       const hexBuffer = '\\x' + buffer.toString('hex');
 
       // Store in Postgres
@@ -132,15 +115,10 @@ async function uploadToDatabase(req, res) {
         VALUES (${id}, ${filename}, ${mimetype}, ${hexBuffer}, ${new Date().toISOString()})
       `;
       
-      // Return URL that serves from DB
-      // Use relative path if possible, or absolute URL
-      // Vercel might be on https, so req.protocol helps.
-      // Note: req.get('host') on Vercel is the domain.
       const protocol = req.headers['x-forwarded-proto'] || req.protocol;
       const host = req.headers['x-forwarded-host'] || req.get('host');
       const fileUrl = `${protocol}://${host}/api/files/${id}`;
       
-      console.log('File saved successfully to DB:', fileUrl);
       res.json({ url: fileUrl });
     } catch (error) {
       console.error('Upload error:', error);
@@ -297,7 +275,6 @@ app.get('/api/articles', async (req, res) => {
 });
 
 app.post('/api/articles', async (req, res) => {
-  console.log('Received request to create article');
   const { title, excerpt, content, coverImage, category, authorId, publishedAt, readTime, tags, status, featured } = req.body;
   const id = `article_${Date.now()}`;
   
@@ -457,32 +434,83 @@ app.post('/api/writer-requests', upload.single('biodata'), async (req, res) => {
   }
 });
 
-// Serve files from DB
-app.get('/api/files/:id', async (req, res) => {
-  const { id } = req.params;
+// Serve files from DB - ALREADY DEFINED ABOVE
+// app.get('/api/files/:id', async (req, res) => { ... });
+
+app.get('/api/writer-requests', async (req, res) => {
+  const { userId } = req.query;
   try {
-    const { rows } = await db`SELECT * FROM files WHERE id = ${id}`;
-    if (rows.length === 0) return res.status(404).send('File not found');
-    
-    const file = rows[0];
-    res.setHeader('Content-Type', file.mimetype);
-    res.setHeader('Content-Disposition', `inline; filename="${file.filename}"`);
-    res.send(file.data);
+    let query;
+    if (userId) {
+      query = db`
+        SELECT r.*, u.name as userName, u.email as userEmail, u.avatar as userAvatar
+        FROM writer_requests r
+        JOIN users u ON r.userId = u.id
+        WHERE r.userId = ${userId}
+        ORDER BY r.requestedAt DESC
+      `;
+    } else {
+      query = db`
+        SELECT r.*, u.name as userName, u.email as userEmail, u.avatar as userAvatar
+        FROM writer_requests r
+        JOIN users u ON r.userId = u.id
+        ORDER BY r.requestedAt DESC
+      `;
+    }
+    const { rows } = await query;
+    const requests = rows.map(row => {
+      try {
+        return {
+          ...row,
+          questionAnswers: row.questionAnswers ? JSON.parse(row.questionAnswers) : {}
+        };
+      } catch (e) {
+        console.error('Error parsing questionAnswers:', e);
+        return {
+          ...row,
+          questionAnswers: {}
+        };
+      }
+    });
+    res.json(requests);
   } catch (error) {
-    res.status(500).send('Error retrieving file');
+    res.status(500).json({ error: error.message });
   }
 });
 
-app.get('/api/writer-requests', async (req, res) => {
+app.put('/api/writer-requests/:id', async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!status || !['approved', 'rejected', 'pending'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
   try {
-    const { rows } = await db`
-      SELECT r.*, u.name as userName, u.email as userEmail, u.avatar as userAvatar
-      FROM writer_requests r
-      JOIN users u ON r.userId = u.id
-      ORDER BY r.requestedAt DESC
-    `;
-    res.json(rows);
+    const { rows: existing } = await db`SELECT * FROM writer_requests WHERE id = ${id}`;
+    if (existing.length === 0) {
+      return res.status(404).json({ error: 'Writer request not found' });
+    }
+    
+    const request = existing[0];
+
+    // Begin transaction-like operations
+    await db`UPDATE writer_requests SET status = ${status} WHERE id = ${id}`;
+
+    if (status === 'approved') {
+      // Update user role to writer
+      await db`UPDATE users SET role = 'writer' WHERE id = ${request.userId}`;
+    }
+
+    if (status === 'rejected') {
+       // Ideally send email notification here
+    } else if (status === 'approved') {
+       // Ideally send email notification here
+    }
+
+    res.json({ id, status });
   } catch (error) {
+    console.error('Update writer request error:', error);
     res.status(500).json({ error: error.message });
   }
 });
