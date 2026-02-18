@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import type { Podcast } from '@/types';
 
+const API_URL = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || '/api');
+
 interface PodcastEditorProps {
   podcast?: Podcast | null;
   isOpen: boolean;
@@ -22,6 +24,7 @@ export function PodcastEditor({ podcast, isOpen, onClose, onSave, mode = 'create
   const [duration, setDuration] = useState('30:00');
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -45,34 +48,71 @@ export function PodcastEditor({ podcast, isOpen, onClose, onSave, mode = 'create
     }
   }, [podcast, mode, isOpen]);
 
-  const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const uploadFile = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('image', file); // Server expects 'image' key
+
+    const response = await fetch(`${API_URL}/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error('Upload failed');
+    }
+
+    const data = await response.json();
+    return data.url;
+  };
+
+  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setAudioFile(file);
-      const url = URL.createObjectURL(file);
-      setAudioUrl(url);
+      setIsUploading(true);
+      const toastId = toast.loading('Uploading audio file...');
       
-      // Get audio duration
-      const audio = new Audio(url);
-      audio.onloadedmetadata = () => {
-        const mins = Math.floor(audio.duration / 60);
-        const secs = Math.floor(audio.duration % 60);
-        setDuration(`${mins}:${secs.toString().padStart(2, '0')}`);
-      };
-      
-      toast.success('Audio file uploaded');
+      try {
+        const url = await uploadFile(file);
+        setAudioUrl(url);
+        
+        // Get audio duration
+        const audio = new Audio(url);
+        audio.onloadedmetadata = () => {
+          const mins = Math.floor(audio.duration / 60);
+          const secs = Math.floor(audio.duration % 60);
+          setDuration(`${mins}:${secs.toString().padStart(2, '0')}`);
+        };
+        
+        toast.success('Audio file uploaded successfully');
+      } catch (error) {
+        console.error('Audio upload error:', error);
+        toast.error('Failed to upload audio file');
+        setAudioFile(null);
+      } finally {
+        setIsUploading(false);
+        toast.dismiss(toastId);
+      }
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCoverImage(reader.result as string);
-        toast.success('Cover image uploaded');
-      };
-      reader.readAsDataURL(file);
+      setIsUploading(true);
+      const toastId = toast.loading('Uploading cover image...');
+      
+      try {
+        const url = await uploadFile(file);
+        setCoverImage(url);
+        toast.success('Cover image uploaded successfully');
+      } catch (error) {
+        console.error('Image upload error:', error);
+        toast.error('Failed to upload cover image');
+      } finally {
+        setIsUploading(false);
+        toast.dismiss(toastId);
+      }
     }
   };
 
@@ -262,9 +302,10 @@ export function PodcastEditor({ podcast, isOpen, onClose, onSave, mode = 'create
               variant="outline"
               onClick={handleSave}
               className="flex items-center gap-2"
+              disabled={isUploading}
             >
               <Save className="w-4 h-4" />
-              Save Episode
+              {isUploading ? 'Uploading...' : 'Save Episode'}
             </Button>
           </div>
         </div>
